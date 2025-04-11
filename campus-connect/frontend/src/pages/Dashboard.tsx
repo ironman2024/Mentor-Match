@@ -51,6 +51,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import { getChatResponse } from '../services/aiChat';
+import ReactMarkdown from 'react-markdown'; // Add this import
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -186,6 +187,21 @@ const Dashboard: React.FC = () => {
       color: '#FFD700'
     }
   ];
+
+  // Add formatMessage helper
+  const formatMessage = (content: string) => {
+    return content
+      // Add spacing around headings (text with **)
+      .replace(/\*\*(.*?)\*\*/g, '\n\n**$1**\n')
+      // Add spacing around numbered lists
+      .replace(/(\d+\.)/g, '\n$1')
+      // Add spacing around bullet points
+      .replace(/•/g, '\n•')
+      // Format sub-bullet points with proper indentation
+      .replace(/(\n\s*[•\-]\s*)(.*?)(?=\n|$)/g, '$1$2')
+      // Add double line breaks between sections
+      .replace(/\n{3,}/g, '\n\n');
+  };
 
   return (
     <Box sx={{ p: 3, backgroundColor: '#f3f2ef', minHeight: '100vh' }}>
@@ -606,51 +622,143 @@ const Dashboard: React.FC = () => {
       <Dialog 
         open={openAiChat} 
         onClose={() => setOpenAiChat(false)}
-        maxWidth="sm"
+        maxWidth="md" // Changed from sm to md for better readability
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            minHeight: '70vh',
+            maxHeight: '85vh'
+          }
+        }}
       >
-        <DialogTitle>AI Assistant</DialogTitle>
+        <DialogTitle sx={{
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          px: 3,
+          py: 2
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Avatar sx={{ bgcolor: 'primary.main' }}>
+              <AIIcon />
+            </Avatar>
+            <Typography variant="h6">AI Learning Assistant</Typography>
+          </Box>
+        </DialogTitle>
+        
         <DialogContent>
           <Box sx={{ 
-            height: '400px', 
+            height: '60vh', 
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
             gap: 2,
-            p: 2
+            p: 2,
+            '&::-webkit-scrollbar': {
+              width: 8,
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: '#E0E0E0',
+              borderRadius: 4,
+            }
           }}>
             {messages.map((msg, index) => (
               <Box
                 key={index}
                 sx={{
                   alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  backgroundColor: msg.role === 'user' ? '#1976d2' : '#f5f5f5',
-                  color: msg.role === 'user' ? 'white' : 'black',
-                  p: 2,
-                  borderRadius: 2,
-                  maxWidth: '80%'
+                  maxWidth: '85%',
+                  minWidth: '30%'
                 }}
               >
-                <Typography>{msg.content}</Typography>
+                <Paper
+                  elevation={1}
+                  sx={{
+                    p: 2.5,
+                    backgroundColor: msg.role === 'user' ? 'primary.main' : 'grey.50',
+                    color: msg.role === 'user' ? 'white' : 'text.primary',
+                    borderRadius: 2,
+                  }}
+                >
+                  {msg.role === 'user' ? (
+                    <Typography>{msg.content}</Typography>
+                  ) : (
+                    <Box sx={{ 
+                      typography: 'body1',
+                      '& p': { 
+                        mt: 1.5, 
+                        mb: 1.5,
+                        lineHeight: 1.6 
+                      },
+                      '& strong': {
+                        color: 'primary.main',
+                        display: 'block',
+                        fontSize: '1.1rem',
+                        mt: 2,
+                        mb: 1
+                      },
+                      '& ul, & ol': { 
+                        pl: 2,
+                        my: 1 
+                      },
+                      '& li': { 
+                        mb: 1,
+                        pl: 1 
+                      },
+                      '& li:last-child': { 
+                        mb: 0 
+                      },
+                      '& code': {
+                        backgroundColor: 'rgba(0,0,0,0.04)',
+                        p: 0.5,
+                        borderRadius: 1,
+                        fontFamily: 'monospace'
+                      }
+                    }}>
+                      <ReactMarkdown>
+                        {formatMessage(msg.content)}
+                      </ReactMarkdown>
+                    </Box>
+                  )}
+                </Paper>
               </Box>
             ))}
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, gap: 1 }}>
+
+        <DialogActions sx={{ 
+          p: 2, 
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          gap: 1 
+        }}>
           <TextField
             fullWidth
+            multiline
+            maxRows={4}
             value={currentMessage}
             onChange={(e) => setCurrentMessage(e.target.value)}
-            placeholder="Type your message..."
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            placeholder="Ask me anything about programming, projects, or learning..."
+            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
             disabled={isAiLoading}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2
+              }
+            }}
           />
           <Button 
             onClick={handleSendMessage}
             variant="contained"
             disabled={!currentMessage.trim() || isAiLoading}
+            sx={{
+              px: 3,
+              py: 1,
+              borderRadius: 2,
+              minWidth: 100
+            }}
           >
-            Send
+            {isAiLoading ? 'Sending...' : 'Send'}
           </Button>
         </DialogActions>
       </Dialog>

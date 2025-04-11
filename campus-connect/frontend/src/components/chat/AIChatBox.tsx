@@ -12,18 +12,17 @@ import {
 } from '@mui/material';
 import { Send as SendIcon, SmartToy as AIIcon } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
-
-interface Message {
-  role: 'user' | 'ai';
-  content: string;
-  timestamp?: Date;
-}
+import ReactMarkdown from 'react-markdown';
 
 interface AIChatBoxProps {
-  onSendMessage: (message: string) => Promise<void>;
-  messages: Message[];
+  onSendMessage: (message: string) => void;
+  messages: Array<{
+    role: 'user' | 'ai';
+    content: string;
+    timestamp?: Date;
+  }>;
   isLoading: boolean;
-  error?: string | null;
+  error?: string;
 }
 
 const AIChatBox: React.FC<AIChatBoxProps> = ({ 
@@ -60,6 +59,15 @@ const AIChatBox: React.FC<AIChatBoxProps> = ({
     }
   };
 
+  const formatMessage = (content: string) => {
+    return content
+      .replace(/\*\*(.*?)\*\*/g, '\n\n**$1**\n')
+      .replace(/(\d+\.)/g, '\n$1')
+      .replace(/•/g, '\n•')
+      .replace(/(\n\s*[•\-]\s*)(.*?)(?=\n|$)/g, '$1$2')
+      .replace(/\n{3,}/g, '\n\n');
+  };
+
   return (
     <Paper 
       elevation={2} 
@@ -78,34 +86,41 @@ const AIChatBox: React.FC<AIChatBoxProps> = ({
       {/* Header */}
       <Box sx={{ 
         p: 2, 
-        bgcolor: '#f3f2ef',
         borderBottom: '1px solid',
         borderColor: 'divider',
         display: 'flex',
         alignItems: 'center',
-        gap: 1
+        gap: 1,
+        bgcolor: '#f8f9fa'
       }}>
-        <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
+        <Avatar sx={{ 
+          bgcolor: 'primary.main',
+          width: 32,
+          height: 32
+        }}>
           <AIIcon fontSize="small" />
         </Avatar>
-        <Typography variant="subtitle1" fontWeight={600}>AI Career Assistant</Typography>
+        <Typography variant="subtitle1" fontWeight={600}>
+          AI Learning Assistant
+        </Typography>
       </Box>
 
-      {/* Messages Area with LinkedIn-style bubbles */}
+      {/* Messages Area */}
       <Box sx={{ 
         flexGrow: 1, 
         overflowY: 'auto',
-        p: 2,
+        p: 3,
         display: 'flex',
         flexDirection: 'column',
         gap: 2,
-        bgcolor: '#f9fafb',
+        bgcolor: '#f8f9fa',
         '&::-webkit-scrollbar': {
-          width: '6px',
+          width: 6,
+          height: 6
         },
         '&::-webkit-scrollbar-thumb': {
-          backgroundColor: '#e0e0e0',
-          borderRadius: '3px',
+          backgroundColor: '#E0E0E0',
+          borderRadius: 3
         }
       }}>
         {messages.map((message, index) => (
@@ -115,38 +130,72 @@ const AIChatBox: React.FC<AIChatBoxProps> = ({
               display: 'flex',
               gap: 1,
               alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '80%'
+              maxWidth: '85%'
             }}
           >
             {message.role === 'ai' && (
-              <Avatar sx={{ bgcolor: 'primary.main' }}>
+              <Avatar sx={{ 
+                bgcolor: 'primary.main',
+                width: 32,
+                height: 32
+              }}>
                 <AIIcon fontSize="small" />
               </Avatar>
             )}
             <Box>
               <Paper
+                elevation={1}
                 sx={{
                   p: 2,
-                  bgcolor: message.role === 'user' ? '#0a66c2' : 'white',
+                  bgcolor: message.role === 'user' ? 'primary.main' : 'white',
                   color: message.role === 'user' ? 'white' : 'text.primary',
                   borderRadius: 2,
                   boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                   border: message.role === 'ai' ? '1px solid #e0e0e0' : 'none'
                 }}
               >
-                <Typography>{message.content}</Typography>
+                {message.role === 'user' ? (
+                  <Typography>{message.content}</Typography>
+                ) : (
+                  <Box sx={{ 
+                    typography: 'body1',
+                    '& p': { mt: 1.5, mb: 1.5, lineHeight: 1.6 },
+                    '& strong': {
+                      color: 'primary.main',
+                      display: 'block',
+                      fontSize: '1.1rem',
+                      mt: 2,
+                      mb: 1
+                    },
+                    '& ul, & ol': { pl: 2, my: 1 },
+                    '& li': { mb: 1, pl: 1 },
+                    '& li:last-child': { mb: 0 },
+                    '& code': {
+                      bgcolor: 'rgba(0,0,0,0.04)',
+                      p: 0.5,
+                      borderRadius: 1,
+                      fontFamily: 'monospace'
+                    }
+                  }}>
+                    <ReactMarkdown>
+                      {formatMessage(message.content)}
+                    </ReactMarkdown>
+                  </Box>
+                )}
               </Paper>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  mt: 0.5, 
-                  display: 'block',
-                  color: 'text.secondary',
-                  textAlign: message.role === 'user' ? 'right' : 'left'
-                }}
-              >
-                {formatMessageTime(message.timestamp)}
-              </Typography>
+              {message.timestamp && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    mt: 0.5,
+                    display: 'block',
+                    color: 'text.secondary',
+                    textAlign: message.role === 'user' ? 'right' : 'left'
+                  }}
+                >
+                  {formatDistanceToNow(message.timestamp, { addSuffix: true })}
+                </Typography>
+              )}
             </Box>
           </Box>
         ))}
@@ -163,33 +212,31 @@ const AIChatBox: React.FC<AIChatBoxProps> = ({
         <div ref={messagesEndRef} />
       </Box>
 
-      <Divider />
-
-      {/* Input Area with LinkedIn-style design */}
+      {/* Input Area */}
       <Box 
         component="form" 
         onSubmit={handleSubmit}
         sx={{ 
           p: 2,
-          bgcolor: 'white',
           borderTop: '1px solid',
           borderColor: 'divider',
           display: 'flex',
-          gap: 1
+          gap: 1,
+          bgcolor: 'white'
         }}
       >
         <TextField
           fullWidth
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your career question..."
+          placeholder="Ask anything about farming or agriculture..."
           disabled={isLoading}
           sx={{
             '& .MuiOutlinedInput-root': {
               borderRadius: 2,
-              bgcolor: '#f3f2ef',
+              bgcolor: '#f8f9fa',
               '&:hover': {
-                bgcolor: '#eef3f8'
+                bgcolor: '#f3f4f6'
               }
             }
           }}
@@ -198,10 +245,10 @@ const AIChatBox: React.FC<AIChatBoxProps> = ({
           type="submit" 
           disabled={isLoading || !input.trim()}
           sx={{ 
-            bgcolor: '#0a66c2',
+            bgcolor: 'primary.main',
             color: 'white',
             '&:hover': {
-              bgcolor: '#004182'
+              bgcolor: 'primary.dark'
             },
             '&.Mui-disabled': {
               bgcolor: '#e0e0e0',
