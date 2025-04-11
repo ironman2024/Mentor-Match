@@ -5,26 +5,31 @@ export interface IProject extends Document {
   description: string;
   creator: mongoose.Types.ObjectId;
   team: mongoose.Types.ObjectId[];
-  skills: string[];
   status: 'open' | 'in-progress' | 'completed';
-  startDate: Date;
-  endDate?: Date;
-  maxTeamSize: number;
-  githubLink?: string;
   technicalDetails: {
     requiredSkills: string[];
     prerequisites: string[];
     complexity: 'beginner' | 'intermediate' | 'advanced';
     domain: string[];
-    estimatedDuration: number; // in weeks
+    estimatedDuration: number;
     techStack: string[];
   };
   projectType: 'software' | 'hardware' | 'hybrid';
-  resourceLinks: {
+  resourceLinks: Array<{
     title: string;
     url: string;
     type: 'documentation' | 'tutorial' | 'github' | 'other';
-  }[];
+  }>;
+  timeline?: {
+    startDate: Date;
+    endDate?: Date;
+    milestones: Array<{
+      title: string;
+      description: string;
+      dueDate: Date;
+      completed: boolean;
+    }>;
+  };
 }
 
 const projectSchema = new mongoose.Schema({
@@ -32,16 +37,11 @@ const projectSchema = new mongoose.Schema({
   description: { type: String, required: true },
   creator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   team: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  skills: [String],
   status: {
     type: String,
     enum: ['open', 'in-progress', 'completed'],
     default: 'open'
   },
-  startDate: { type: Date, default: Date.now },
-  endDate: Date,
-  maxTeamSize: { type: Number, default: 5 },
-  githubLink: String,
   technicalDetails: {
     requiredSkills: [String],
     prerequisites: [String],
@@ -66,7 +66,17 @@ const projectSchema = new mongoose.Schema({
       type: String,
       enum: ['documentation', 'tutorial', 'github', 'other']
     }
-  }]
+  }],
+  timeline: {
+    startDate: Date,
+    endDate: Date,
+    milestones: [{
+      title: String,
+      description: String,
+      dueDate: Date,
+      completed: { type: Boolean, default: false }
+    }]
+  }
 }, { timestamps: true });
 
 export default mongoose.model<IProject>('Project', projectSchema);

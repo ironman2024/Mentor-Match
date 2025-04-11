@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useSnackbar } from 'notistack';
 import {
   Box,
   Grid,
@@ -18,7 +20,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Autocomplete
+  Autocomplete,
+  CircularProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -53,6 +56,7 @@ interface Project {
 }
 
 const Projects: React.FC = () => {
+  const { enqueueSnackbar } = useSnackbar();
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [openCreate, setOpenCreate] = useState(false);
@@ -60,62 +64,84 @@ const Projects: React.FC = () => {
     title: '',
     description: '',
     skills: [] as string[],
-  });
-
-  const mockProjects: Project[] = [
-    {
-      id: '1',
-      title: 'AI Study Group Project',
-      description: 'Building a machine learning model for student performance prediction',
-      skills: ['Python', 'TensorFlow', 'Data Science'],
-      team: ['John Doe', 'Jane Smith'],
-      status: 'in-progress',
-      technicalDetails: {
-        requiredSkills: ['Python', 'TensorFlow'],
-        prerequisites: ['Basic Python', 'Statistics'],
-        complexity: 'intermediate',
-        domain: ['Data Science'],
-        estimatedDuration: 12,
-        techStack: ['Python', 'TensorFlow']
-      },
-      projectType: 'software',
-      resourceLinks: [
-        { title: 'TensorFlow Documentation', url: 'https://www.tensorflow.org/', type: 'documentation' }
-      ]
-    },
-    {
-      id: '2',
-      title: 'Campus Connect Mobile App',
-      description: 'Developing a mobile version of the Campus Connect platform',
-      skills: ['React Native', 'TypeScript', 'Node.js'],
-      team: ['Alice Johnson'],
-      status: 'open',
-      technicalDetails: {
-        requiredSkills: ['React Native', 'TypeScript'],
-        prerequisites: ['JavaScript', 'React'],
-        complexity: 'beginner',
-        domain: ['Mobile Development'],
-        estimatedDuration: 8,
-        techStack: ['React Native', 'TypeScript', 'Node.js']
-      },
-      projectType: 'software',
-      resourceLinks: [
-        { title: 'React Native Documentation', url: 'https://reactnative.dev/', type: 'documentation' }
-      ]
+    technicalDetails: {
+      requiredSkills: [],
+      prerequisites: [],
+      complexity: 'beginner',
+      domain: [],
+      estimatedDuration: 0,
+      techStack: []
     }
-  ];
+  });
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleCreateProject = () => {
-    // TODO: Implement project creation API call
-    setOpenCreate(false);
-    setNewProject({ title: '', description: '', skills: [] });
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5002/api/projects', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setProjects(response.data);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      enqueueSnackbar('Failed to load projects. Please try again later.', { 
+        variant: 'error' 
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filteredProjects = mockProjects.filter(project =>
-    project.title.toLowerCase().includes(search.toLowerCase()) ||
-    project.description.toLowerCase().includes(search.toLowerCase()) ||
-    project.skills.some(skill => skill.toLowerCase().includes(search.toLowerCase()))
-  );
+  const handleCreateProject = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        'http://localhost:5002/api/projects',
+        newProject,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      setProjects(prev => [response.data, ...prev]);
+      setOpenCreate(false);
+      setNewProject({ title: '', description: '', skills: [], technicalDetails: {
+        requiredSkills: [],
+        prerequisites: [],
+        complexity: 'beginner',
+        domain: [],
+        estimatedDuration: 0,
+        techStack: []
+      }});
+      enqueueSnackbar('Project created successfully', { variant: 'success' });
+    } catch (error) {
+      console.error('Error creating project:', error);
+      enqueueSnackbar('Failed to create project', { variant: 'error' });
+    }
+  };
+
+  const filteredProjects = React.useMemo(() => {
+    if (!projects?.length) return [];
+    
+    return projects.filter(project =>
+      project.title.toLowerCase().includes(search.toLowerCase()) ||
+      project.description.toLowerCase().includes(search.toLowerCase()) ||
+      project.skills?.some(skill => 
+        skill.toLowerCase().includes(search.toLowerCase())
+      )
+    );
+  }, [projects, search]);
 
   useEffect(() => {
     socket.on('new_project', (project: Project) => {
@@ -156,48 +182,62 @@ const Projects: React.FC = () => {
         }}
       />
 
-      <Grid container spacing={3}>
-        {filteredProjects.map((project) => (
-          <Grid item xs={12} md={6} key={project.id}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {project.title}
-                </Typography>
-                <Typography color="textSecondary" paragraph>
-                  {project.description}
-                </Typography>
-                <Box mb={2}>
-                  {project.skills.map((skill) => (
-                    <Chip
-                      key={skill}
-                      label={skill}
-                      size="small"
-                      sx={{ mr: 0.5, mb: 0.5 }}
-                    />
-                  ))}
-                </Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box display="flex" alignItems="center">
-                    <PersonIcon sx={{ mr: 1 }} />
-                    <Typography variant="body2">
-                      {project.team.length} member{project.team.length !== 1 ? 's' : ''}
+      {loading ? (
+        <Box display="flex" justifyContent="center" p={4}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {filteredProjects.length > 0 ? (
+            filteredProjects.map((project) => (
+              <Grid item xs={12} md={6} key={project.id || project._id}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      {project.title}
                     </Typography>
-                  </Box>
-                  <Chip
-                    label={project.status}
-                    color={
-                      project.status === 'completed' ? 'success' :
-                      project.status === 'in-progress' ? 'primary' : 'default'
-                    }
-                    size="small"
-                  />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                    <Typography color="textSecondary" paragraph>
+                      {project.description}
+                    </Typography>
+                    <Box mb={2}>
+                      {project.skills?.map((skill) => (
+                        <Chip
+                          key={skill}
+                          label={skill}
+                          size="small"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      ))}
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      <Box display="flex" alignItems="center">
+                        <PersonIcon sx={{ mr: 1 }} />
+                        <Typography variant="body2">
+                          {project.team?.length || 0} member{project.team?.length !== 1 ? 's' : ''}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={project.status}
+                        color={
+                          project.status === 'completed' ? 'success' :
+                          project.status === 'in-progress' ? 'primary' : 'default'
+                        }
+                        size="small"
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          ) : (
+            <Grid item xs={12}>
+              <Typography align="center" color="textSecondary">
+                {loading ? 'Loading projects...' : 'No projects found'}
+              </Typography>
+            </Grid>
+          )}
+        </Grid>
+      )}
 
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="md" fullWidth>
         <DialogTitle>Create New Project</DialogTitle>

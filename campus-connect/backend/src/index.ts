@@ -16,6 +16,7 @@ import messageRoutes from './routes/messages';
 import mentorshipRoutes from './routes/mentorship';
 import { Server } from 'socket.io';
 import http from 'http';
+import projectRoutes from './routes/projects';
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use('/api/images', imageRoutes);
 app.use('/api/profile', profileRoutes); // Mount the profile route
 app.use('/api/messages', messageRoutes); // Add messages route
 app.use('/api/mentorship', mentorshipRoutes);
+app.use('/api/projects', projectRoutes); // Add this line
 
 app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Welcome to Campus Connect API' });
@@ -123,7 +125,32 @@ const findAvailablePort = async (startPort: number): Promise<number> => {
   return port;
 };
 
-// Update startServer function
+export let io: Server; // Export io instance
+
+const initSocketIO = (server: http.Server) => {
+  io = new Server(server, {
+    cors: {
+      origin: "http://localhost:3000",
+      methods: ["GET", "POST"],
+      credentials: true
+    }
+  });
+
+  io.on('connection', socket => {
+    console.log('Client connected:', socket.id);
+    
+    socket.on('new_project', (project: any) => {
+      io.emit('project_update', project);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Client disconnected:', socket.id);
+    });
+  });
+
+  return io;
+};
+
 const startServer = async () => {
   try {
     // Connect to MongoDB first
@@ -140,66 +167,7 @@ const startServer = async () => {
 
     // Create HTTP server
     const server = http.createServer(app);
-    
-    // Create Socket.IO instance
-    const io = new Server(server, {
-      cors: {
-        origin: "http://localhost:3000",
-        methods: ["GET", "POST"],
-        credentials: true
-      }
-    });
-
-    // Set up Socket.IO handlers
-    io.on('connection', socket => {
-      console.log('Client connected:', socket.id);
-    
-      socket.on('join', (userId) => {
-        socket.join(userId);
-        console.log('User joined room:', userId);
-      });
-    
-      socket.on('send_message', async (data) => {
-        try {
-          const { recipientId, message } = data;
-          io.to(recipientId).emit('receive_message', message);
-        } catch (error) {
-          console.error('Socket message error:', error);
-        }
-      });
-    
-      socket.on('joinRoom', (userId) => {
-        socket.join(`user_${userId}`);
-        console.log(`User ${userId} joined their personal room`);
-      });
-    
-      socket.on('mentorship_request', async (data) => {
-        try {
-          const { mentorId, menteeId, request } = data;
-          // Emit to mentor's room
-          io.to(`user_${mentorId}`).emit('new_mentorship_request', {
-            menteeId,
-            request
-          });
-        } catch (error) {
-          console.error('Mentorship request socket error:', error);
-        }
-      });
-    
-      socket.on('mentorship_response', async (data) => {
-        try {
-          const { menteeId, response } = data;
-          // Emit to mentee's room
-          io.to(`user_${menteeId}`).emit('mentorship_request_update', response);
-        } catch (error) {
-          console.error('Mentorship response socket error:', error);
-        }
-      });
-    
-      socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-      });
-    });
+    io = initSocketIO(server); // Initialize Socket.IO
 
     // Start server
     server.listen(port, '0.0.0.0', () => {
