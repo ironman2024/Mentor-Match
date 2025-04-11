@@ -22,6 +22,8 @@ const Inbox: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const [mentorshipContext, setMentorshipContext] = useState<any>(null);
+  const [selectedChat, setSelectedChat] = useState<any>(null);
 
   useEffect(() => {
     fetchConversations();
@@ -29,6 +31,29 @@ const Inbox: React.FC = () => {
     const interval = setInterval(fetchConversations, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (selectedChat) {
+      // Add mentorship context if it exists
+      const getMentorshipContext = async () => {
+        try {
+          const response = await axios.get(
+            `http://localhost:5002/api/mentorship/session/${selectedChat.mentorshipId}`,
+            {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            }
+          );
+          setMentorshipContext(response.data);
+        } catch (error) {
+          console.error('Error fetching mentorship context:', error);
+        }
+      };
+
+      if (selectedChat.type === 'mentorship') {
+        getMentorshipContext();
+      }
+    }
+  }, [selectedChat]);
 
   const fetchConversations = async () => {
     try {
@@ -71,7 +96,10 @@ const Inbox: React.FC = () => {
               <React.Fragment key={conv._id}>
                 <ListItem
                   button
-                  onClick={() => setSelectedUser(conv.otherUser)}
+                  onClick={() => {
+                    setSelectedUser(conv.otherUser);
+                    setSelectedChat(conv);
+                  }}
                 >
                   <ListItemAvatar>
                     <Badge
@@ -105,6 +133,14 @@ const Inbox: React.FC = () => {
           )}
         </List>
       </Paper>
+
+      {selectedChat?.type === 'mentorship' && mentorshipContext && (
+        <Box p={2} bgcolor="background.paper" borderBottom={1} borderColor="divider">
+          <Typography variant="subtitle2" color="primary">
+            Mentorship Session: {mentorshipContext.topic}
+          </Typography>
+        </Box>
+      )}
 
       {selectedUser && (
         <MessageDialog

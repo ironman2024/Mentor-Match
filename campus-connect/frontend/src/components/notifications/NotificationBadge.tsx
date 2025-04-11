@@ -8,7 +8,7 @@ import {
   Box,
   Divider
 } from '@mui/material';
-import { Notifications as NotificationsIcon, Chat as ChatIcon, Event as EventIcon } from '@mui/icons-material';
+import { Notifications as NotificationsIcon, Chat as ChatIcon, Event as EventIcon, Person as PersonIcon } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -59,9 +59,20 @@ const NotificationBadge: React.FC = () => {
         { read: true }
       );
 
-      // Handle message notifications
-      if (notification.type === 'message') {
-        navigate('/inbox');
+      // Handle different notification types
+      switch (notification.type) {
+        case 'mentorship_request':
+          navigate('/mentorship/dashboard');
+          break;
+        case 'mentorship_accepted':
+          navigate('/inbox');
+          break;
+        case 'message':
+          navigate('/inbox');
+          break;
+        default:
+          // Handle other notification types
+          break;
       }
 
       fetchNotifications();
@@ -73,6 +84,9 @@ const NotificationBadge: React.FC = () => {
 
   const getNotificationIcon = (type: string) => {
     switch(type) {
+      case 'mentorship_request':
+      case 'mentorship_accepted':
+        return <PersonIcon fontSize="small" />;
       case 'message':
         return <ChatIcon fontSize="small" />;
       case 'event_registration':

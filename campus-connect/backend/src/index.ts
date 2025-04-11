@@ -13,6 +13,7 @@ import notificationRoutes from './routes/notifications';
 import imageRoutes from './routes/images';
 import profileRoutes from './routes/profile'; // Import the profile route
 import messageRoutes from './routes/messages';
+import mentorshipRoutes from './routes/mentorship';
 import { Server } from 'socket.io';
 import http from 'http';
 
@@ -57,6 +58,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/profile', profileRoutes); // Mount the profile route
 app.use('/api/messages', messageRoutes); // Add messages route
+app.use('/api/mentorship', mentorshipRoutes);
 
 app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Welcome to Campus Connect API' });
@@ -93,64 +95,117 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 const findAvailablePort = async (startPort: number): Promise<number> => {
-  return new Promise((resolve, reject) => {
-    const server = require('net').createServer();
-    server.unref();
-    server.on('error', (err: any) => {
-      if (err.code === 'EADDRINUSE') {
-        resolve(findAvailablePort(startPort + 1));
-      } else {
-        reject(err);
-      }
-    });
-    server.listen(startPort, () => {
-      server.close(() => {
-        resolve(startPort);
+  let port = startPort;
+  const server = require('net').createServer();
+
+  const isPortAvailable = (port: number) =>
+    new Promise((resolve) => {
+      server.once('error', () => {
+        server.removeAllListeners('listening');
+        resolve(false);
       });
+      
+      server.once('listening', () => {
+        server.close();
+        resolve(true);
+      });
+      
+      server.listen(port, '0.0.0.0');
     });
-  });
+
+  while (!(await isPortAvailable(port))) {
+    port++;
+    if (port - startPort > 10) {
+      throw new Error('No available ports found');
+    }
+  }
+
+  return port;
 };
 
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});
-
-// Socket.IO connection handler
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-
-  socket.on('join', (userId) => {
-    socket.join(userId);
-    console.log('User joined room:', userId);
-  });
-
-  socket.on('send_message', async (data) => {
-    try {
-      const { recipientId, message } = data;
-      io.to(recipientId).emit('receive_message', message);
-    } catch (error) {
-      console.error('Socket message error:', error);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
-});
-
-// Update server start
+// Update startServer function
 const startServer = async () => {
   try {
+    // Connect to MongoDB first
     await connectDB();
-    const port = Number(process.env.PORT || 5002);
-    app.listen(port, '0.0.0.0', () => {
+
+    // Find available port
+    const desiredPort = Number(process.env.PORT || 5002);
+    const port = await findAvailablePort(desiredPort);
+    
+    if (port !== desiredPort) {
+      console.log(`Port ${desiredPort} is in use, using port ${port}`);
+      process.env.PORT = port.toString();
+    }
+
+    // Create HTTP server
+    const server = http.createServer(app);
+    
+    // Create Socket.IO instance
+    const io = new Server(server, {
+      cors: {
+        origin: "http://localhost:3000",
+        methods: ["GET", "POST"],
+        credentials: true
+      }
+    });
+
+    // Set up Socket.IO handlers
+    io.on('connection', socket => {
+      console.log('Client connected:', socket.id);
+    
+      socket.on('join', (userId) => {
+        socket.join(userId);
+        console.log('User joined room:', userId);
+      });
+    
+      socket.on('send_message', async (data) => {
+        try {
+          const { recipientId, message } = data;
+          io.to(recipientId).emit('receive_message', message);
+        } catch (error) {
+          console.error('Socket message error:', error);
+        }
+      });
+    
+      socket.on('joinRoom', (userId) => {
+        socket.join(`user_${userId}`);
+        console.log(`User ${userId} joined their personal room`);
+      });
+    
+      socket.on('mentorship_request', async (data) => {
+        try {
+          const { mentorId, menteeId, request } = data;
+          // Emit to mentor's room
+          io.to(`user_${mentorId}`).emit('new_mentorship_request', {
+            menteeId,
+            request
+          });
+        } catch (error) {
+          console.error('Mentorship request socket error:', error);
+        }
+      });
+    
+      socket.on('mentorship_response', async (data) => {
+        try {
+          const { menteeId, response } = data;
+          // Emit to mentee's room
+          io.to(`user_${menteeId}`).emit('mentorship_request_update', response);
+        } catch (error) {
+          console.error('Mentorship response socket error:', error);
+        }
+      });
+    
+      socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+      });
+    });
+
+    // Start server
+    server.listen(port, '0.0.0.0', () => {
       console.log(`Server running at http://localhost:${port}`);
     });
+
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

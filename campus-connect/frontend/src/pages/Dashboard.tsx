@@ -4,15 +4,14 @@ import {
   Paper,
   Typography,
   Box,
-  Card,
-  CardContent,
   Button,
   List,
   ListItem,
   ListItemText,
   ListItemAvatar,
   Avatar,
-  Divider
+  Divider,
+  Stack
 } from '@mui/material';
 import {
   Event as EventIcon,
@@ -126,96 +125,145 @@ const Dashboard: React.FC = () => {
   ];
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Welcome back, {user?.name}!
-      </Typography>
-
-      <Grid container spacing={3}>
-        {/* Profile Summary Card */}
-        <Grid item xs={12} md={4}>
-          <ProfileCard user={user} />
+    <Box sx={{ 
+      background: '#F8F9FB',
+      minHeight: '100vh',
+      mx: -3,
+      mt: -3,
+      px: { xs: 1, md: 2 },
+      py: { xs: 1, md: 2 },
+    }}>
+      <Grid container spacing={1.5}>
+        {/* Left Column */}
+        <Grid item xs={12} md={3}>
+          <Box sx={{
+            background: 'white',
+            borderRadius: '12px',
+            border: '1px solid #B5BBC9',
+            overflow: 'hidden',
+          }}>
+            <ProfileCard user={user} />
+          </Box>
         </Grid>
 
-        {/* Post Creation and Feed */}
-        <Grid item xs={12} md={8}>
-          <PostCreator
-            value={newPost}
-            onChange={setNewPost}
-            onSubmit={handleCreatePost}
-            onCertificateClick={() => setIsPostingCertificate(true)}
-          />
-          <PostFeed posts={posts} />
-        </Grid>
-
-        {/* Stats Cards */}
-        {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Card>
-              <CardContent>
-                <Box display="flex" alignItems="center" mb={1}>
-                  {stat.icon}
-                  <Typography variant="h6" component="div" sx={{ ml: 1 }}>
-                    {stat.value}
-                  </Typography>
-                </Box>
-                <Typography color="textSecondary">{stat.title}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-
-        {/* Recent Activities */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Recent Activities
-            </Typography>
-            <List>
-              {recentActivities.map((activity, index) => (
-                <React.Fragment key={index}>
-                  <ListItem>
-                    <ListItemAvatar>
-                      <Avatar>{activity.title[0]}</Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={activity.title}
-                      secondary={activity.time}
-                    />
-                  </ListItem>
-                  {index < recentActivities.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </List>
-          </Paper>
-        </Grid>
-
-        {/* Quick Actions */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Quick Actions
-            </Typography>
-            <Box display="flex" flexDirection="column" gap={2}>
-              <Button variant="outlined" startIcon={<AssignmentIcon />}>
-                Create New Project
-              </Button>
-              <Button 
-                variant="outlined" 
-                startIcon={<GroupIcon />}
-                onClick={() => navigate('/mentorship')}
-              >
-                Find Mentor
-              </Button>
-              <Button variant="outlined" startIcon={<EventIcon />}>
-                Browse Events
-              </Button>
+        {/* Middle Column - Posts */}
+        <Grid item xs={12} md={6}>
+          <Stack spacing={1.5}>
+            <Paper elevation={0} sx={{
+              p: 1.5,
+              borderRadius: '12px',
+              border: '1px solid #B5BBC9',
+              background: 'white',
+            }}>
+              <PostCreator
+                value={newPost}
+                onChange={setNewPost}
+                onSubmit={handleCreatePost}
+                onCertificateClick={() => setIsPostingCertificate(true)}
+              />
+            </Paper>
+            <Box sx={{
+              background: 'white',
+              borderRadius: '12px',
+              border: '1px solid #B5BBC9',
+              overflow: 'hidden',
+            }}>
+              <PostFeed posts={posts} />
             </Box>
-          </Paper>
+          </Stack>
+        </Grid>
+
+        {/* Right Column */}
+        <Grid item xs={12} md={3}>
+          <Stack spacing={1.5}>
+            {/* Stats */}
+            <Paper elevation={0} sx={{ 
+              p: 1.5,
+              borderRadius: '12px',
+              border: '1px solid #B5BBC9',
+              background: 'white',
+            }}>
+              <Typography variant="h6" sx={{ 
+                color: '#585E6C',
+                fontWeight: 600,
+                mb: 2
+              }}>
+                Stats Overview
+              </Typography>
+              <Grid container spacing={2}>
+                {stats.map((stat, index) => (
+                  <Grid item xs={6} key={index}>
+                    <Box sx={{
+                      textAlign: 'center',
+                      py: 2,
+                      px: 1,
+                      borderRadius: '16px',
+                      transition: 'transform 0.2s',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                      }
+                    }}>
+                      {React.cloneElement(stat.icon, { 
+                        sx: { color: '#585E6C', fontSize: '2rem', mb: 1 } 
+                      })}
+                      <Typography variant="h4" sx={{ 
+                        color: '#585E6C',
+                        fontWeight: 700,
+                        fontSize: '1.5rem'
+                      }}>
+                        {stat.value}
+                      </Typography>
+                      <Typography sx={{ 
+                        color: '#B5BBC9',
+                        fontSize: '0.875rem'
+                      }}>
+                        {stat.title}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+
+            {/* Recent Activities */}
+            <Paper elevation={0} sx={{ 
+              p: 1.5, 
+              borderRadius: '12px',
+              border: '1px solid #B5BBC9',
+              background: 'white',
+            }}>
+              <Typography variant="h6" gutterBottom sx={{ color: '#585E6C' }}>
+                Recent Activities
+              </Typography>
+              <List>
+                {recentActivities.map((activity, index) => (
+                  <React.Fragment key={index}>
+                    <ListItem sx={{ px: 0 }}>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: '#585E6C' }}>
+                          {activity.title[0]}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={activity.title}
+                        secondary={activity.time}
+                        sx={{
+                          '& .MuiListItemText-primary': { color: '#585E6C' },
+                          '& .MuiListItemText-secondary': { color: '#B5BBC9' }
+                        }}
+                      />
+                    </ListItem>
+                    {index < recentActivities.length - 1 && 
+                      <Divider sx={{ borderColor: '#B5BBC9' }} />
+                    }
+                  </React.Fragment>
+                ))}
+              </List>
+            </Paper>
+          </Stack>
         </Grid>
       </Grid>
 
-      {/* Certificate Upload Dialog */}
       <CertificateUploadDialog
         open={isPostingCertificate}
         onClose={() => setIsPostingCertificate(false)}

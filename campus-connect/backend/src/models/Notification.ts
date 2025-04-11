@@ -2,7 +2,7 @@ import mongoose, { Document } from 'mongoose';
 
 export interface INotification extends Document {
   recipient: mongoose.Types.ObjectId;
-  type: 'event_registration' | 'team_update' | 'general';
+  type: 'mentorship_request' | 'mentorship_accepted' | 'event_registration' | 'general';
   title: string;
   message: string;
   read: boolean;
@@ -11,10 +11,14 @@ export interface INotification extends Document {
 }
 
 const notificationSchema = new mongoose.Schema({
-  recipient: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  recipient: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  },
   type: { 
     type: String, 
-    enum: ['event_registration', 'team_update', 'general'],
+    enum: ['mentorship_request', 'mentorship_accepted', 'event_registration', 'general'],
     required: true 
   },
   title: { type: String, required: true },

@@ -1,278 +1,343 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Grid,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Chip,
-  Avatar,
-  Rating,
-  InputAdornment,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper as MuiPaper,
-  styled
+  Box, Typography, TextField, Grid, Paper, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, Avatar,
+  Button, Rating, InputAdornment, Dialog, DialogTitle,
+  DialogContent, DialogActions, FormControl, InputLabel,
+  Select, MenuItem, Card, CardContent, Chip, List, ListItem, ListItemAvatar, ListItemText
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  Mail as MailIcon,
-  Star as StarIcon
-} from '@mui/icons-material';
+import { Search as SearchIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
+import MentorshipRequestPreviewDialog from '../components/dialogs/MentorshipRequestPreviewDialog';
+import { useNavigate } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
 
 interface Mentor {
-  id: string;
+  _id: string;
   name: string;
   role: string;
+  email: string;
+  department: string;
   expertise: string[];
-  rating: number;
-  reviews: number;
-  available: boolean;
+  mentorRating: number;
+  totalRatings: number;
   avatar?: string;
+  available: boolean;
+  responseRate: number;
+  studentsHelped: number;
+  bio?: string;
 }
 
 const Mentorship: React.FC = () => {
-  const { user } = useAuth();
+  const [mentors, setMentors] = useState<Mentor[]>([]);
   const [search, setSearch] = useState('');
-  const [openRequest, setOpenRequest] = useState(false);
   const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null);
-  const [mentorLeaderboard, setMentorLeaderboard] = useState<any[]>([]);
+  const [openRequest, setOpenRequest] = useState(false);
+  const [requestMessage, setRequestMessage] = useState('');
+  const [filters, setFilters] = useState({
+    role: 'all',
+    department: '',
+    expertise: ''
+  });
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  const { user } = useAuth();
+  const { enqueueSnackbar } = useSnackbar();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchMentorLeaderboard();
-  }, []);
+    fetchMentors();
+    if (user?.role === 'faculty' || user?.role === 'alumni') {
+      fetchPendingRequests();
+    }
+  }, [user]);
 
-  const fetchMentorLeaderboard = async () => {
+  const fetchMentors = async () => {
     try {
-      const response = await axios.get('http://localhost:5002/api/users/mentors/leaderboard');
-      setMentorLeaderboard(response.data);
+      const response = await axios.get('http://localhost:5002/api/users/mentors', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      console.log('Fetched mentors:', response.data); // Debug log
+      setMentors(response.data);
     } catch (error) {
-      console.error('Error fetching leaderboard:', error);
+      console.error('Error fetching mentors:', error);
     }
   };
 
-  const handleRateMentor = async (mentorId: string, rating: number) => {
+  const fetchPendingRequests = async () => {
     try {
-      await axios.post(`http://localhost:5002/api/users/mentors/${mentorId}/rate`, { rating });
-      fetchMentorLeaderboard();
+      const response = await axios.get('http://localhost:5002/api/mentorship/requests', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setPendingRequests(response.data);
     } catch (error) {
-      console.error('Error rating mentor:', error);
+      console.error('Error fetching requests:', error);
     }
   };
-
-  const mockMentors: Mentor[] = [
-    {
-      id: '1',
-      name: 'Dr. Sarah Johnson',
-      role: 'Faculty',
-      expertise: ['Machine Learning', 'Data Science', 'Python'],
-      rating: 4.8,
-      reviews: 24,
-      available: true
-    },
-    {
-      id: '2',
-      name: 'Alex Chen',
-      role: 'Alumni',
-      expertise: ['Web Development', 'React', 'Node.js'],
-      rating: 4.5,
-      reviews: 15,
-      available: true
-    }
-  ];
 
   const handleRequestMentorship = (mentor: Mentor) => {
     setSelectedMentor(mentor);
     setOpenRequest(true);
   };
 
-  const handleSubmitRequest = () => {
-    // TODO: Implement mentorship request API call
-    setOpenRequest(false);
-    setSelectedMentor(null);
+  const handleSubmitRequest = async () => {
+    if (!selectedMentor) return;
+
+    try {
+      const response = await axios.post(
+        'http://localhost:5002/api/mentorship/request',
+        {
+          mentorId: selectedMentor._id,
+          topic: 'Mentorship Request',
+          message: requestMessage
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+
+      if (response.data) {
+        setOpenRequest(false);
+        setSelectedMentor(null);
+        setRequestMessage('');
+        // Add success notification here
+      }
+    } catch (error) {
+      console.error('Error details:', error);
+      // Add error notification here
+    }
   };
 
-  const filteredMentors = mockMentors.filter(mentor =>
-    mentor.name.toLowerCase().includes(search.toLowerCase()) ||
-    mentor.expertise.some(skill => skill.toLowerCase().includes(search.toLowerCase()))
-  );
+  const handlePreviewRequest = (request: any) => {
+    setSelectedRequest(request);
+    setPreviewOpen(true);
+  };
+
+  const handleRequestAction = async (requestId: string, action: 'accepted' | 'rejected') => {
+    try {
+      const response = await axios.patch(
+        `http://localhost:5002/api/mentorship/requests/${requestId}`,
+        { status: action },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setPreviewOpen(false);
+        await fetchPendingRequests();
+
+        const message = action === 'accepted' ? 'Request accepted successfully' : 'Request declined';
+        enqueueSnackbar(message, { 
+          variant: action === 'accepted' ? 'success' : 'info' 
+        });
+
+        if (action === 'accepted' && response.data.chat) {
+          navigate('/inbox');
+        }
+      }
+    } catch (error: any) {
+      console.error('Error handling request:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to process request';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
+  };
+
+  const filteredMentors = mentors.filter(mentor => {
+    const searchTerms = search.toLowerCase().split(' ');
+    const mentorText = `${mentor.name} ${mentor.department} ${mentor.expertise.join(' ')}`.toLowerCase();
+    
+    const matchesSearch = searchTerms.every(term => mentorText.includes(term));
+    const matchesRole = filters.role === 'all' || mentor.role.toLowerCase() === filters.role;
+    const matchesDepartment = !filters.department || 
+      mentor.department.toLowerCase().includes(filters.department.toLowerCase());
+
+    return matchesSearch && matchesRole && matchesDepartment;
+  });
 
   return (
-    <Box>
+    <Box p={3}>
+      {/* Show pending requests section for mentors */}
+      {(user?.role === 'faculty' || user?.role === 'alumni') && (
+        <Box mb={4}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Pending Mentorship Requests
+            </Typography>
+            {pendingRequests.length === 0 ? (
+              <Typography color="textSecondary">No pending requests</Typography>
+            ) : (
+              <List>
+                {pendingRequests.map((request: any) => (
+                  <ListItem key={request._id} divider>
+                    <ListItemAvatar>
+                      <Avatar src={request.mentee?.avatar}>
+                        {request.mentee?.name?.[0]}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={request.mentee?.name}
+                      secondary={
+                        <>
+                          <Typography variant="body2">
+                            Topic: {request.topic}
+                          </Typography>
+                          <Typography variant="caption">
+                            Requested: {new Date(request.createdAt).toLocaleDateString()}
+                          </Typography>
+                        </>
+                      }
+                    />
+                    <Box>
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        size="small"
+                        onClick={() => handlePreviewRequest(request)}
+                        sx={{ mr: 1 }}
+                      >
+                        Preview
+                      </Button>
+                    </Box>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Paper>
+        </Box>
+      )}
+
       <Typography variant="h4" gutterBottom>
-        Find a Mentor
+        Available Mentors
       </Typography>
 
-      {/* Mentor Leaderboard */}
-      <Box mb={4}>
-        <Typography variant="h5" gutterBottom>
-          Top Mentors
-        </Typography>
-        <TableContainer component={MuiPaper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Rank</TableCell>
-                <TableCell>Mentor</TableCell>
-                <TableCell align="center">Rating</TableCell>
-                <TableCell align="center">Total Ratings</TableCell>
-                <TableCell align="center">Messages</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {mentorLeaderboard.map((mentor, index) => (
-                <TableRow key={mentor._id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>
-                    <Box display="flex" alignItems="center">
-                      <Avatar src={mentor.avatar} sx={{ mr: 2 }}>
-                        {mentor.name[0]}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="subtitle2">{mentor.name}</Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          {mentor.role} • {mentor.department}
-                        </Typography>
+      <Paper sx={{ p: 2, mb: 4 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              placeholder="Search mentors..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                )
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Role</InputLabel>
+              <Select
+                value={filters.role}
+                label="Role"
+                onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
+              >
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="faculty">Faculty</MenuItem>
+                <MenuItem value="alumni">Alumni</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {mentors.length === 0 ? (
+        <Typography>No mentors found</Typography>
+      ) : (
+        <Grid container spacing={3}>
+          {filteredMentors.map((mentor) => (
+            <Grid item xs={12} md={6} lg={4} key={mentor._id}>
+              <Card>
+                <CardContent>
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <Avatar src={mentor.avatar} sx={{ width: 56, height: 56, mr: 2 }}>
+                      {mentor.name[0]}
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h6">{mentor.name}</Typography>
+                      <Typography color="textSecondary">{mentor.role}</Typography>
+                    </Box>
+                  </Box>
+
+                  <Typography variant="body2" gutterBottom>
+                    Department: {mentor.department || 'Not specified'}
+                  </Typography>
+
+                  {mentor.expertise && mentor.expertise.length > 0 && (
+                    <Box mb={2}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Expertise:
+                      </Typography>
+                      <Box display="flex" flexWrap="wrap" gap={0.5}>
+                        {mentor.expertise.map((skill, index) => (
+                          <Chip 
+                            key={index}
+                            label={skill}
+                            size="small"
+                            sx={{ mr: 0.5, mb: 0.5 }}
+                          />
+                        ))}
                       </Box>
                     </Box>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Rating
-                      value={mentor.mentorRating}
+                  )}
+
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <Rating 
+                      value={mentor.mentorRating} 
+                      readOnly 
                       precision={0.5}
-                      readOnly
-                    />
-                    ({mentor.mentorRating.toFixed(1)})
-                  </TableCell>
-                  <TableCell align="center">{mentor.totalRatings}</TableCell>
-                  <TableCell align="center">{mentor.messageCount}</TableCell>
-                  <TableCell align="center">
-                    {user?.role === 'student' && (
-                      <>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={() => handleRequestMentorship(mentor)}
-                          sx={{ mr: 1 }}
-                        >
-                          Request
-                        </Button>
-                        <Rating
-                          size="small"
-                          onChange={(_, value) => {
-                            if (value) handleRateMentor(mentor._id, value);
-                          }}
-                        />
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-
-      <TextField
-        fullWidth
-        variant="outlined"
-        placeholder="Search mentors by name or expertise..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        sx={{ mb: 3 }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon />
-            </InputAdornment>
-          ),
-        }}
-      />
-
-      <Grid container spacing={3}>
-        {filteredMentors.map((mentor) => (
-          <Grid item xs={12} md={6} key={mentor.id}>
-            <Card>
-              <CardContent>
-                <Box display="flex" alignItems="center" mb={2}>
-                  <Avatar
-                    src={mentor.avatar}
-                    sx={{ width: 56, height: 56, mr: 2 }}
-                  />
-                  <Box>
-                    <Typography variant="h6">{mentor.name}</Typography>
-                    <Typography color="textSecondary">{mentor.role}</Typography>
-                  </Box>
-                </Box>
-
-                <Box mb={2}>
-                  {mentor.expertise.map((skill) => (
-                    <Chip
-                      key={skill}
-                      label={skill}
                       size="small"
-                      sx={{ mr: 0.5, mb: 0.5 }}
                     />
-                  ))}
-                </Box>
+                    <Typography variant="body2" sx={{ ml: 1 }}>
+                      ({mentor.totalRatings} ratings)
+                    </Typography>
+                  </Box>
 
-                <Box display="flex" alignItems="center" mb={2}>
-                  <Rating value={mentor.rating} readOnly precision={0.5} />
-                  <Typography variant="body2" sx={{ ml: 1 }}>
-                    ({mentor.reviews} reviews)
-                  </Typography>
-                </Box>
+                  {user?.role === 'student' && (
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={() => handleRequestMentorship(mentor)}
+                    >
+                      Request Mentorship
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Chip
-                    label={mentor.available ? 'Available' : 'Unavailable'}
-                    color={mentor.available ? 'success' : 'default'}
-                    size="small"
-                  />
-                  <Button
-                    variant="contained"
-                    startIcon={<MailIcon />}
-                    onClick={() => handleRequestMentorship(mentor)}
-                    disabled={!mentor.available}
-                  >
-                    Request Mentorship
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
+      {/* Request Dialog */}
       <Dialog open={openRequest} onClose={() => setOpenRequest(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Request Mentorship</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
-            label="Why would you like to connect with this mentor?"
             multiline
             rows={4}
-            margin="normal"
-          />
-          <TextField
-            fullWidth
-            label="What specific areas would you like guidance in?"
-            multiline
-            rows={2}
-            margin="normal"
+            label="Message to mentor"
+            value={requestMessage}
+            onChange={(e) => setRequestMessage(e.target.value)}
+            placeholder="Explain why you'd like to connect with this mentor and what you hope to learn..."
+            sx={{ mt: 2 }}
           />
         </DialogContent>
         <DialogActions>
@@ -282,6 +347,14 @@ const Mentorship: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <MentorshipRequestPreviewDialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        request={selectedRequest}
+        onAccept={(requestId) => handleRequestAction(requestId, 'accepted')}
+        onReject={(requestId) => handleRequestAction(requestId, 'rejected')}
+      />
     </Box>
   );
 };

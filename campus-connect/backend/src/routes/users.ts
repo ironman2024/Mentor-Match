@@ -7,11 +7,24 @@ const router = express.Router();
 router.get('/mentors', auth, async (req, res) => {
   try {
     const mentors = await User.find({
-      role: { $in: ['faculty', 'alumni'] },
-      mentorshipAvailability: true
-    }).select('name role expertise rating menteeCount reputation avatar');
-    res.json(mentors);
+      role: { $in: ['faculty', 'alumni'] }
+    })
+    .select('name role avatar department mentorRating totalRatings email bio skills')
+    .lean();
+
+    const formattedMentors = mentors.map(mentor => ({
+      ...mentor,
+      expertise: mentor.skills?.map((skill: any) => 
+        typeof skill === 'object' ? skill.name : skill
+      ) || [],
+      available: true,
+      mentorRating: mentor.mentorRating || 0,
+      totalRatings: mentor.totalRatings || 0
+    }));
+
+    res.json(formattedMentors);
   } catch (error: any) {
+    console.error('Error fetching mentors:', error);
     res.status(500).json({ message: error.message });
   }
 });

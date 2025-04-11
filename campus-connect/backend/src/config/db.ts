@@ -11,8 +11,11 @@ const connectDB = async (): Promise<void> => {
       throw new Error('MONGODB_URI is not defined in environment variables');
     }
 
+    // Simple connection without deprecated options
     await mongoose.connect(process.env.MONGODB_URI);
-    
+
+    console.log('Connected to MongoDB and indexes created');
+
     // Create indexes after models are registered
     await Promise.all([
       mongoose.model('User').createIndexes(),
@@ -20,8 +23,6 @@ const connectDB = async (): Promise<void> => {
       mongoose.model('Event').createIndexes(),
       mongoose.model('MentorshipSession').createIndexes()
     ]);
-
-    console.log('Connected to MongoDB and indexes created');
 
     mongoose.connection.on('error', (err) => {
       console.error('MongoDB error:', err);
