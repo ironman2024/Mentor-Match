@@ -8,18 +8,11 @@ import {
   Button,
   Chip,
   Avatar,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
   CircularProgress
 } from '@mui/material';
 import {
   Edit as EditIcon,
-  Save as SaveIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon
+  Add as AddIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -113,37 +106,71 @@ const Profile: React.FC = () => {
   }
 
   return (
-    <Box>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h4">Profile</Typography>
-          {isOwnProfile && (
-            <Button
-              variant="contained"
-              startIcon={<EditIcon />}
-              onClick={() => navigate('/profile/edit')}
-            >
-              Edit Profile
-            </Button>
-          )}
-        </Box>
+    <Box sx={{ 
+      background: '#F8F9FB',
+      minHeight: 'calc(100vh - 64px)',
+      margin: -3,
+      padding: 4
+    }}>
+      <Box maxWidth="1200px" margin="0 auto">
+        <Paper elevation={0} sx={{ 
+          p: { xs: 3, sm: 4 },
+          borderRadius: '24px',
+          border: '1px solid #B5BBC9',
+          boxShadow: '0 4px 20px rgba(88,94,108,0.1)',
+          background: 'white',
+        }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+            <Typography variant="h4" sx={{ color: '#585E6C', fontWeight: 700 }}>
+              Profile
+            </Typography>
+            {isOwnProfile && (
+              <Button
+                variant="contained"
+                startIcon={<EditIcon />}
+                onClick={() => navigate('/profile/edit')}
+                sx={{
+                  borderRadius: '30px',
+                  px: 3,
+                  py: 1.5,
+                  background: '#585E6C',
+                  textTransform: 'none',
+                  '&:hover': {
+                    background: '#474D59',
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 4px 12px rgba(88,94,108,0.25)',
+                  }
+                }}
+              >
+                Edit Profile
+              </Button>
+            )}
+          </Box>
 
-        <Grid container spacing={3}>
-          {/* Basic Information */}
-          <Grid item xs={12} md={4}>
-            <Box display="flex" flexDirection="column" alignItems="center">
-              <Avatar
-                sx={{ width: 120, height: 120, mb: 2 }}
-                src={user?.avatar}
-              />
-              <Typography variant="h6">{profile.name}</Typography>
-              <Typography color="textSecondary">{profile.email}</Typography>
-            </Box>
-          </Grid>
+          <Grid container spacing={4}>
+            {/* Basic Information */}
+            <Grid item xs={12} md={4}>
+              <Box display="flex" flexDirection="column" alignItems="center">
+                <Avatar
+                  sx={{ 
+                    width: 120, 
+                    height: 120, 
+                    mb: 2,
+                    border: '2px solid #E74C3C'
+                  }}
+                  src={user?.avatar}
+                />
+                <Typography variant="h5" sx={{ color: '#585E6C', fontWeight: 600 }}>
+                  {profile.name}
+                </Typography>
+                <Typography sx={{ color: '#B5BBC9', mt: 1 }}>
+                  {profile.email}
+                </Typography>
+              </Box>
+            </Grid>
 
-          {/* Profile Details */}
-          <Grid item xs={12} md={8}>
-            <Box>
+            {/* Profile Details */}
+            <Grid item xs={12} md={8}>
               <TextField
                 fullWidth
                 label="Bio"
@@ -151,7 +178,18 @@ const Profile: React.FC = () => {
                 rows={3}
                 value={profile.bio}
                 disabled={!isEditing}
-                sx={{ mb: 2 }}
+                sx={{ 
+                  mb: 3,
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    '&:hover fieldset': {
+                      borderColor: '#585E6C',
+                    },
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#B5BBC9',
+                  }
+                }}
                 onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
               />
               
@@ -162,6 +200,17 @@ const Profile: React.FC = () => {
                     label="Department"
                     value={profile.department}
                     disabled={!isEditing}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        '&:hover fieldset': {
+                          borderColor: '#585E6C',
+                        },
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#B5BBC9',
+                      }
+                    }}
                     onChange={(e) => setProfile(prev => ({ ...prev, department: e.target.value }))}
                   />
                 </Grid>
@@ -171,71 +220,115 @@ const Profile: React.FC = () => {
                     label="Year of Graduation"
                     value={profile.yearOfGraduation}
                     disabled={!isEditing}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        '&:hover fieldset': {
+                          borderColor: '#585E6C',
+                        },
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#B5BBC9',
+                      }
+                    }}
                     onChange={(e) => setProfile(prev => ({ ...prev, yearOfGraduation: e.target.value }))}
                   />
                 </Grid>
               </Grid>
-            </Box>
-          </Grid>
+            </Grid>
 
-          {/* Skills Section */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>Skills</Typography>
-            <Box sx={{ mb: 2 }}>
-              {profile.skills.map((skill: string) => (
-                <Chip
-                  key={skill}
-                  label={skill}
-                  onDelete={isEditing ? () => handleRemoveSkill(skill) : undefined}
-                  sx={{ m: 0.5 }}
-                />
-              ))}
-            </Box>
-            {isEditing && (
-              <Box display="flex" gap={1}>
-                <TextField
-                  size="small"
-                  label="Add Skill"
-                  value={newSkill}
-                  onChange={(e) => setNewSkill(e.target.value)}
-                />
-                <Button
-                  startIcon={<AddIcon />}
-                  onClick={handleAddSkill}
-                  variant="contained"
-                >
-                  Add
-                </Button>
+            {/* Skills Section */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ color: '#585E6C', fontWeight: 600, mb: 2 }}>
+                Skills
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                {profile.skills.map((skill: string) => (
+                  <Chip
+                    key={skill}
+                    label={skill}
+                    onDelete={isEditing ? () => handleRemoveSkill(skill) : undefined}
+                    sx={{ 
+                      m: 0.5,
+                      bgcolor: '#585E6C',
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: '#474D59'
+                      }
+                    }}
+                  />
+                ))}
               </Box>
-            )}
-          </Grid>
+              {isEditing && (
+                <Box display="flex" gap={1}>
+                  <TextField
+                    size="small"
+                    label="Add Skill"
+                    value={newSkill}
+                    onChange={(e) => setNewSkill(e.target.value)}
+                  />
+                  <Button
+                    startIcon={<AddIcon />}
+                    onClick={handleAddSkill}
+                    variant="contained"
+                  >
+                    Add
+                  </Button>
+                </Box>
+              )}
+            </Grid>
 
-          {/* Social Links */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>Professional Links</Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="LinkedIn"
-                  value={profile.linkedin}
-                  disabled={!isEditing}
-                  onChange={(e) => setProfile(prev => ({ ...prev, linkedin: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="GitHub"
-                  value={profile.github}
-                  disabled={!isEditing}
-                  onChange={(e) => setProfile(prev => ({ ...prev, github: e.target.value }))}
-                />
+            {/* Social Links */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ color: '#585E6C', fontWeight: 600, mb: 2 }}>
+                Professional Links
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="LinkedIn"
+                    value={profile.linkedin}
+                    disabled={!isEditing}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        '&:hover fieldset': {
+                          borderColor: '#585E6C',
+                        },
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#B5BBC9',
+                      }
+                    }}
+                    onChange={(e) => setProfile(prev => ({ ...prev, linkedin: e.target.value }))}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="GitHub"
+                    value={profile.github}
+                    disabled={!isEditing}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        '&:hover fieldset': {
+                          borderColor: '#585E6C',
+                        },
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#B5BBC9',
+                      }
+                    }}
+                    onChange={(e) => setProfile(prev => ({ ...prev, github: e.target.value }))}
+                  />
+                </Grid>
               </Grid>
             </Grid>
           </Grid>
-        </Grid>
-      </Paper>
+        </Paper>
+      </Box>
     </Box>
   );
 };

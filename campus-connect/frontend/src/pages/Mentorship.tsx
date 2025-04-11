@@ -88,32 +88,40 @@ const Mentorship: React.FC = () => {
   };
 
   const handleSubmitRequest = async () => {
-    if (!selectedMentor) return;
+    if (!selectedMentor || !requestMessage.trim()) return;
 
     try {
+      const requestData = {
+        mentorId: selectedMentor._id,
+        topic: 'Mentorship Request',
+        message: requestMessage.trim(),
+        details: {
+          mentor: selectedMentor.name,
+          department: selectedMentor.department,
+          studentMessage: requestMessage.trim()
+        }
+      };
+
       const response = await axios.post(
         'http://localhost:5002/api/mentorship/request',
-        {
-          mentorId: selectedMentor._id,
-          topic: 'Mentorship Request',
-          message: requestMessage
-        },
+        requestData,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
           }
         }
       );
 
       if (response.data) {
+        enqueueSnackbar('Mentorship request sent successfully', { variant: 'success' });
         setOpenRequest(false);
         setSelectedMentor(null);
         setRequestMessage('');
-        // Add success notification here
       }
     } catch (error) {
       console.error('Error details:', error);
-      // Add error notification here
+      enqueueSnackbar('Failed to send mentorship request', { variant: 'error' });
     }
   };
 
@@ -168,16 +176,52 @@ const Mentorship: React.FC = () => {
   });
 
   return (
-    <Box p={3}>
-      {/* Show pending requests section for mentors */}
-      {(user?.role === 'faculty' || user?.role === 'alumni') && (
-        <Box mb={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Pending Mentorship Requests
+    <Box sx={{ 
+      background: '#F8F9FB',
+      minHeight: 'calc(100vh - 64px)',
+      margin: -3,
+      padding: 4
+    }}>
+      <Box maxWidth="1400px" margin="0 auto">
+        {/* Header Section */}
+        <Typography 
+          variant="h4" 
+          sx={{ 
+            color: '#585E6C',
+            fontWeight: 700,
+            mb: 4
+          }}
+        >
+          Mentorship Hub
+        </Typography>
+
+        {/* Pending Requests Section */}
+        {(user?.role === 'faculty' || user?.role === 'alumni') && (
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: 3,
+              mb: 4,
+              background: 'white',
+              border: '1px solid #B5BBC9',
+              borderRadius: '8px'
+            }}
+          >
+            <Typography 
+              variant="h5" 
+              gutterBottom 
+              sx={{ 
+                color: '#2D3E50',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}
+            >
+              Pending Requests
             </Typography>
             {pendingRequests.length === 0 ? (
-              <Typography color="textSecondary">No pending requests</Typography>
+              <Typography sx={{ color: '#596273' }}>No pending requests</Typography>
             ) : (
               <List>
                 {pendingRequests.map((request: any) => (
@@ -203,10 +247,17 @@ const Mentorship: React.FC = () => {
                     <Box>
                       <Button
                         variant="outlined"
-                        color="primary"
                         size="small"
                         onClick={() => handlePreviewRequest(request)}
-                        sx={{ mr: 1 }}
+                        sx={{
+                          mr: 1,
+                          color: '#1ABC9C',
+                          borderColor: '#1ABC9C',
+                          '&:hover': {
+                            borderColor: '#1ABC9C',
+                            background: 'rgba(26,188,156,0.05)'
+                          }
+                        }}
                       >
                         Preview
                       </Button>
@@ -216,72 +267,112 @@ const Mentorship: React.FC = () => {
               </List>
             )}
           </Paper>
-        </Box>
-      )}
+        )}
 
-      <Typography variant="h4" gutterBottom>
-        Available Mentors
-      </Typography>
-
-      <Paper sx={{ p: 2, mb: 4 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              placeholder="Search mentors..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                )
-              }}
-            />
+        {/* Search and Filter Section */}
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 3, 
+            mb: 4,
+            background: 'white',
+            border: '1px solid #B5BBC9',
+            borderRadius: '8px'
+          }}
+        >
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                placeholder="Search mentors..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: '#B5BBC9' }} />
+                    </InputAdornment>
+                  )
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px',
+                    '&:hover fieldset': {
+                      borderColor: '#585E6C',
+                    },
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#B5BBC9',
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel sx={{ color: '#596273' }}>Role</InputLabel>
+                <Select
+                  value={filters.role}
+                  label="Role"
+                  onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
+                  sx={{
+                    borderRadius: '12px',
+                    backgroundColor: '#F8F9FB'
+                  }}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="faculty">Faculty</MenuItem>
+                  <MenuItem value="alumni">Alumni</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
-              <Select
-                value={filters.role}
-                label="Role"
-                onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
-              >
-                <MenuItem value="all">All</MenuItem>
-                <MenuItem value="faculty">Faculty</MenuItem>
-                <MenuItem value="alumni">Alumni</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper>
+        </Paper>
 
-      {mentors.length === 0 ? (
-        <Typography>No mentors found</Typography>
-      ) : (
+        {/* Mentors Grid */}
         <Grid container spacing={3}>
           {filteredMentors.map((mentor) => (
             <Grid item xs={12} md={6} lg={4} key={mentor._id}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <Avatar src={mentor.avatar} sx={{ width: 56, height: 56, mr: 2 }}>
+              <Card 
+                elevation={0}
+                sx={{ 
+                  border: '1px solid #B5BBC9',
+                  borderRadius: '8px',
+                  background: 'white',
+                  '&:hover': {
+                    boxShadow: '0 4px 20px rgba(88,94,108,0.1)',
+                    transform: 'translateY(-1px)',
+                    transition: 'all 0.3s ease'
+                  }
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Box display="flex" alignItems="center" mb={3}>
+                    <Avatar 
+                      src={mentor.avatar} 
+                      sx={{ 
+                        width: 64, 
+                        height: 64, 
+                        mr: 2,
+                        border: '2px solid #E74C3C'
+                      }}
+                    >
                       {mentor.name[0]}
                     </Avatar>
                     <Box>
                       <Typography variant="h6">{mentor.name}</Typography>
-                      <Typography color="textSecondary">{mentor.role}</Typography>
+                      <Typography color="textSecondary" sx={{ color: '#596273' }}>
+                        {mentor.role}
+                      </Typography>
                     </Box>
                   </Box>
 
-                  <Typography variant="body2" gutterBottom>
+                  <Typography variant="body2" gutterBottom sx={{ color: '#596273' }}>
                     Department: {mentor.department || 'Not specified'}
                   </Typography>
 
                   {mentor.expertise && mentor.expertise.length > 0 && (
                     <Box mb={2}>
-                      <Typography variant="subtitle2" gutterBottom>
+                      <Typography variant="subtitle2" sx={{ color: '#585E6C', fontWeight: 600 }}>
                         Expertise:
                       </Typography>
                       <Box display="flex" flexWrap="wrap" gap={0.5}>
@@ -290,7 +381,11 @@ const Mentorship: React.FC = () => {
                             key={index}
                             label={skill}
                             size="small"
-                            sx={{ mr: 0.5, mb: 0.5 }}
+                            sx={{ 
+                              borderRadius: '4px',
+                              background: '#585E6C',
+                              color: 'white'
+                            }}
                           />
                         ))}
                       </Box>
@@ -314,6 +409,19 @@ const Mentorship: React.FC = () => {
                       variant="contained"
                       fullWidth
                       onClick={() => handleRequestMentorship(mentor)}
+                      sx={{
+                        mt: 2,
+                        py: 1.5,
+                        borderRadius: '8px',
+                        background: '#585E6C',
+                        fontSize: '1rem',
+                        textTransform: 'none',
+                        '&:hover': {
+                          background: '#474D59',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 4px 12px rgba(88,94,108,0.25)',
+                        }
+                      }}
                     >
                       Request Mentorship
                     </Button>
@@ -323,26 +431,84 @@ const Mentorship: React.FC = () => {
             </Grid>
           ))}
         </Grid>
-      )}
+      </Box>
 
       {/* Request Dialog */}
-      <Dialog open={openRequest} onClose={() => setOpenRequest(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Request Mentorship</DialogTitle>
+      <Dialog 
+        open={openRequest} 
+        onClose={() => setOpenRequest(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '24px',
+            p: { xs: 2, sm: 3 },
+            border: '1px solid #B5BBC9',
+            boxShadow: '0 4px 20px rgba(88,94,108,0.1)',
+            background: 'white'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          color: '#585E6C', 
+          fontWeight: 700,
+          fontSize: { xs: '1.5rem', sm: '1.8rem' }
+        }}>
+          Request Mentorship from {selectedMentor?.name}
+        </DialogTitle>
         <DialogContent>
+          <Typography variant="subtitle1" sx={{ color: '#596273', mb: 2 }}>
+            Send a message explaining why you'd like to connect with {selectedMentor?.name} and what you hope to learn.
+          </Typography>
           <TextField
             fullWidth
             multiline
             rows={4}
-            label="Message to mentor"
+            label="Your message"
             value={requestMessage}
             onChange={(e) => setRequestMessage(e.target.value)}
-            placeholder="Explain why you'd like to connect with this mentor and what you hope to learn..."
-            sx={{ mt: 2 }}
+            placeholder="Introduce yourself and describe your learning goals..."
+            sx={{ 
+              mt: 2,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '12px',
+                '&:hover fieldset': {
+                  borderColor: '#585E6C',
+                },
+              },
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#B5BBC9',
+              }
+            }}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenRequest(false)}>Cancel</Button>
-          <Button onClick={handleSubmitRequest} variant="contained" color="primary">
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button 
+            onClick={() => setOpenRequest(false)}
+            sx={{ 
+              color: '#B5BBC9',
+              '&:hover': { bgcolor: 'rgba(88,94,108,0.05)' }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSubmitRequest} 
+            variant="contained"
+            sx={{
+              py: 1,
+              px: 3,
+              borderRadius: '30px',
+              background: '#585E6C',
+              fontSize: '1rem',
+              textTransform: 'none',
+              '&:hover': {
+                background: '#474D59',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(88,94,108,0.25)',
+              }
+            }}
+          >
             Send Request
           </Button>
         </DialogActions>

@@ -198,161 +198,299 @@ const EditProfile: React.FC = () => {
   };
 
   return (
-    <Box>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h4" gutterBottom>Edit Profile</Typography>
-        
-        <Grid container spacing={3}>
-          <Grid item xs={12} display="flex" justifyContent="center">
-            <Box position="relative">
-              <Avatar
-                src={profile.avatar ? `http://localhost:5002${profile.avatar}` : undefined}
-                sx={{ width: 120, height: 120 }}
+    <Box sx={{ 
+      background: '#F8F9FB',
+      minHeight: 'calc(100vh - 64px)',
+      margin: -3,
+      padding: 4
+    }}>
+      <Box maxWidth="1200px" margin="0 auto">
+        <Paper elevation={0} sx={{ 
+          p: { xs: 3, sm: 4 },
+          borderRadius: '24px',
+          border: '1px solid #B5BBC9',
+          boxShadow: '0 4px 20px rgba(88,94,108,0.1)',
+          background: 'white',
+        }}>
+          <Typography variant="h4" sx={{ color: '#585E6C', fontWeight: 700, mb: 4 }}>
+            Edit Profile
+          </Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} display="flex" justifyContent="center">
+              <Box position="relative">
+                <Avatar
+                  src={profile.avatar ? `http://localhost:5002${profile.avatar}` : undefined}
+                  sx={{ 
+                    width: 120, 
+                    height: 120,
+                    border: '2px solid #E74C3C'
+                  }}
+                />
+                <input
+                  accept="image/*"
+                  type="file"
+                  hidden
+                  id="avatar-upload"
+                  onChange={handleAvatarUpload}
+                />
+                <label htmlFor="avatar-upload">
+                  <IconButton
+                    component="span"
+                    sx={{
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      bgcolor: '#585E6C',
+                      color: 'white',
+                      '&:hover': { 
+                        bgcolor: '#474D59',
+                        transform: 'translateY(-2px)',
+                        transition: 'all 0.2s'
+                      }
+                    }}
+                  >
+                    <PhotoCamera />
+                  </IconButton>
+                </label>
+              </Box>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Name"
+                value={profile.name}
+                onChange={e => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    '&:hover fieldset': {
+                      borderColor: '#585E6C',
+                    },
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#B5BBC9',
+                  }
+                }}
               />
-              <input
-                accept="image/*"
-                type="file"
-                hidden
-                id="avatar-upload"
-                onChange={handleAvatarUpload}
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                label="Bio"
+                value={profile.bio}
+                onChange={e => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    '&:hover fieldset': {
+                      borderColor: '#585E6C',
+                    },
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#B5BBC9',
+                  }
+                }}
               />
-              <label htmlFor="avatar-upload">
-                <IconButton
-                  component="span"
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Department"
+                value={profile.department}
+                onChange={e => setProfile(prev => ({ ...prev, department: e.target.value }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    '&:hover fieldset': {
+                      borderColor: '#585E6C',
+                    },
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#B5BBC9',
+                  }
+                }}
+              />
+            </Grid>
+
+            {user?.role !== 'club' && (
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Year of Graduation</InputLabel>
+                  <Select
+                    value={profile.yearOfGraduation}
+                    onChange={e => setProfile(prev => ({
+                      ...prev,
+                      yearOfGraduation: e.target.value
+                    }))}
+                    label="Year of Graduation"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        '&:hover fieldset': {
+                          borderColor: '#585E6C',
+                        },
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#B5BBC9',
+                      }
+                    }}
+                  >
+                    {getAvailableYears().map(year => (
+                      <MenuItem key={year} value={year}>
+                        {year}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ color: '#585E6C', fontWeight: 600, mb: 2 }}>
+                Skills
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                {profile.skills.map((skill: string, index: number) => (
+                  <Chip
+                    key={`${skill}-${index}`}
+                    label={skill}
+                    onDelete={() => setProfile(prev => ({
+                      ...prev,
+                      skills: prev.skills.filter(s => s !== skill)
+                    }))}
+                    sx={{ 
+                      m: 0.5,
+                      bgcolor: '#585E6C',
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: '#474D59'
+                      },
+                      '& .MuiChip-deleteIcon': {
+                        color: 'white',
+                        '&:hover': { color: '#E74C3C' }
+                      }
+                    }}
+                  />
+                ))}
+              </Box>
+              <Box display="flex" gap={1}>
+                <TextField
+                  size="small"
+                  label="Add Skill"
+                  value={newSkill}
+                  onChange={e => setNewSkill(e.target.value)}
                   sx={{
-                    position: 'absolute',
-                    bottom: 0,
-                    right: 0,
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    '&:hover': { bgcolor: 'primary.dark' }
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '12px'
+                    }
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleAddSkill}
+                  disabled={!newSkill.trim()}
+                  sx={{
+                    borderRadius: '30px',
+                    px: 3,
+                    background: '#585E6C',
+                    textTransform: 'none',
+                    '&:hover': {
+                      background: '#474D59',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 4px 12px rgba(88,94,108,0.25)',
+                    }
                   }}
                 >
-                  <PhotoCamera />
-                </IconButton>
-              </label>
-            </Box>
-          </Grid>
-
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Name"
-              value={profile.name}
-              onChange={e => setProfile(prev => ({ ...prev, name: e.target.value }))}
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              multiline
-              rows={4}
-              label="Bio"
-              value={profile.bio}
-              onChange={e => setProfile(prev => ({ ...prev, bio: e.target.value }))}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Department"
-              value={profile.department}
-              onChange={e => setProfile(prev => ({ ...prev, department: e.target.value }))}
-            />
-          </Grid>
-
-          {user?.role !== 'club' && (
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Year of Graduation</InputLabel>
-                <Select
-                  value={profile.yearOfGraduation}
-                  onChange={e => setProfile(prev => ({
-                    ...prev,
-                    yearOfGraduation: e.target.value
-                  }))}
-                  label="Year of Graduation"
-                >
-                  {getAvailableYears().map(year => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  Add
+                </Button>
+              </Box>
             </Grid>
-          )}
 
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>Skills</Typography>
-            <Box sx={{ mb: 2 }}>
-              {profile.skills.map((skill: string, index: number) => (
-                <Chip
-                  key={`${skill}-${index}`}
-                  label={skill}
-                  onDelete={() => setProfile(prev => ({
-                    ...prev,
-                    skills: prev.skills.filter(s => s !== skill)
-                  }))}
-                  sx={{ m: 0.5 }}
-                />
-              ))}
-            </Box>
-            <Box display="flex" gap={1}>
+            <Grid item xs={12} md={6}>
               <TextField
-                size="small"
-                label="Add Skill"
-                value={newSkill}
-                onChange={e => setNewSkill(e.target.value)}
+                fullWidth
+                label="LinkedIn Profile"
+                value={profile.linkedin}
+                onChange={e => setProfile(prev => ({ ...prev, linkedin: e.target.value }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    '&:hover fieldset': {
+                      borderColor: '#585E6C',
+                    },
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#B5BBC9',
+                  }
+                }}
               />
-              <Button
-                variant="contained"
-                onClick={handleAddSkill}
-                disabled={!newSkill.trim()}
-              >
-                Add
-              </Button>
-            </Box>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="GitHub Profile"
+                value={profile.github}
+                onChange={e => setProfile(prev => ({ ...prev, github: e.target.value }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    '&:hover fieldset': {
+                      borderColor: '#585E6C',
+                    },
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#B5BBC9',
+                  }
+                }}
+              />
+            </Grid>
           </Grid>
 
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="LinkedIn Profile"
-              value={profile.linkedin}
-              onChange={e => setProfile(prev => ({ ...prev, linkedin: e.target.value }))}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="GitHub Profile"
-              value={profile.github}
-              onChange={e => setProfile(prev => ({ ...prev, github: e.target.value }))}
-            />
-          </Grid>
-        </Grid>
-
-        <Box display="flex" justifyContent="flex-end" mt={3}>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-          >
-            Save Changes
-          </Button>
-        </Box>
-      </Paper>
+          <Box display="flex" justifyContent="flex-end" mt={4}>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              sx={{
+                borderRadius: '30px',
+                px: 4,
+                py: 1.5,
+                background: '#585E6C',
+                fontSize: '1rem',
+                textTransform: 'none',
+                '&:hover': {
+                  background: '#474D59',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 4px 12px rgba(88,94,108,0.25)',
+                }
+              }}
+            >
+              Save Changes
+            </Button>
+          </Box>
+        </Paper>
+      </Box>
 
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}
         onClose={() => setNotification(prev => ({ ...prev, open: false }))}
       >
-        <Alert severity={notification.type}>
+        <Alert 
+          severity={notification.type}
+          sx={{
+            borderRadius: '12px',
+            border: '1px solid',
+            borderColor: notification.type === 'success' ? '#1ABC9C' : '#E74C3C'
+          }}
+        >
           {notification.message}
         </Alert>
       </Snackbar>

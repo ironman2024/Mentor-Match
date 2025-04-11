@@ -25,7 +25,7 @@ const PORT = Number(process.env.PORT || 5002); // Default to 5002 if PORT is not
 
 // Updated CORS configuration
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -130,8 +130,8 @@ export let io: Server; // Export io instance
 const initSocketIO = (server: http.Server) => {
   io = new Server(server, {
     cors: {
-      origin: "http://localhost:3000",
-      methods: ["GET", "POST"],
+      origin: ['http://localhost:3000', 'http://localhost:3001'],
+      methods: ['GET', 'POST'],
       credentials: true
     }
   });

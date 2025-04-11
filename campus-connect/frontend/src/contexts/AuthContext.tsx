@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
+import axiosInstance from '../config/axios';
 
 type UserRole = 'student' | 'alumni' | 'faculty' | 'club';
 
@@ -31,6 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Update token management
   const setAuthToken = (token: string | null) => {
@@ -78,22 +80,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, { email, password });
-      const { token, user } = response.data;
-      setAuthToken(token);
-      setUser(user);
+      const response = await axiosInstance.post('/auth/login', {
+        email,
+        password
+      });
+      
+      if (response.data.token) {
+        setAuthToken(response.data.token);
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+        return response.data;
+      }
     } catch (error) {
-      console.error('Login error:', error); // Add error logging
-      setError('Authentication failed');
-      throw new Error('Authentication failed');
+      setIsAuthenticated(false);
+      console.error('Login error:', error);
+      throw error;
     }
-  }, []);
+  };
 
   const logout = useCallback(() => {
     setAuthToken(null);
     setUser(null);
+    setIsAuthenticated(false);
   }, []);
 
   // Update axios interceptors
@@ -129,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user, 
       login, 
       logout, 
-      isAuthenticated: !!user, 
+      isAuthenticated,
       loading,
       error 
     }}>

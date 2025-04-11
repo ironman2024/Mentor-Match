@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button, Grid, Card, AppBar, Toolbar, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { Box, Typography, Button, Grid, Card, AppBar, Toolbar, Accordion, AccordionSummary, AccordionDetails, Container } from '@mui/material';
 import { Link } from 'react-router-dom';
 import SchoolIcon from '@mui/icons-material/School';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -11,10 +11,14 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import MessageIcon from '@mui/icons-material/Message';
+import AIChatBox from '../components/chat/AIChatBox';
+import { useAI } from '../contexts/AIContext';
+import { getChatResponse } from '../services/aiChat';
 
 const Homepage = () => {
   const [visible, setVisible] = useState(true);
   const [prevScrollPos, setPrevScrollPos] = useState(0);
+  const { messages, setMessages, isLoading, setIsLoading } = useAI();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -26,6 +30,34 @@ const Homepage = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [prevScrollPos]);
+
+  const sendAiMessage = async (message: string) => {
+    try {
+      setIsLoading(true);
+      // Add user message to chat with timestamp
+      const userMessage = { 
+        role: 'user', 
+        content: message,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, userMessage]);
+
+      // Get AI response
+      const response = await getChatResponse(message);
+      
+      // Add AI response to chat with timestamp
+      const aiMessage = { 
+        role: 'ai', // Changed from 'assistant' to 'ai' to match interface
+        content: response,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <>
@@ -221,12 +253,12 @@ const Homepage = () => {
             {
               title: 'Skill Showcase',
               description: 'Build and showcase your portfolio of skills, projects, and achievements.',
-              image: './src/images/Resume-bro.svg'
+              image: '/images/Resume-bro.svg'
             },
             {
               title: 'Smart Dashboard',
               description: 'Track your progress, manage certifications, and view insights all in one place.',
-              image: './src/images/Control Panel-rafiki.svg'
+              image: '/images/Control-Panel-rafiki.svg'
             },
             {
               title: 'Real-time Communication',
@@ -468,6 +500,20 @@ const Homepage = () => {
             </Box>
           </Grid>
         </Grid>
+      </Box>
+
+      {/* AI Chat Section */}
+      <Box sx={{ py: 10, background: '#f5f5f5' }}>
+        <Container maxWidth="md">
+          <Typography variant="h4" textAlign="center" fontWeight={600} mb={4}>
+            Chat with AI Assistant
+          </Typography>
+          <AIChatBox 
+            messages={messages}
+            onSendMessage={sendAiMessage}
+            isLoading={isLoading}
+          />
+        </Container>
       </Box>
     </>
   );

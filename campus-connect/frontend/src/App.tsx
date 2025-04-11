@@ -9,26 +9,29 @@ import { CircularProgress, Box } from '@mui/material';
 import ErrorBoundary from './components/ErrorBoundary';
 import { SocketProvider } from './contexts/SocketContext';
 import { SnackbarProvider } from 'notistack';
+import { AIProvider } from './contexts/AIContext';
 
 const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <SnackbarProvider maxSnack={3}>
         <AuthProvider>
-          <SocketProvider>
-            <BrowserRouter>
-              <ErrorBoundary>
-                <CssBaseline />
-                <Suspense fallback={
-                  <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-                    <CircularProgress />
-                  </Box>
-                }>
-                  <AppRoutes />
-                </Suspense>
-              </ErrorBoundary>
-            </BrowserRouter>
-          </SocketProvider>
+          <AIProvider>
+            <SocketProvider>
+              <BrowserRouter>
+                <ErrorBoundary>
+                  <CssBaseline />
+                  <Suspense fallback={
+                    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+                      <CircularProgress />
+                    </Box>
+                  }>
+                    <AppRoutes />
+                  </Suspense>
+                </ErrorBoundary>
+              </BrowserRouter>
+            </SocketProvider>
+          </AIProvider>
         </AuthProvider>
       </SnackbarProvider>
     </ThemeProvider>

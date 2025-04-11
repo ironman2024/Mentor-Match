@@ -8,14 +8,14 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:5002', // Ensure backend is running on this port
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '') // Ensure this matches backend routes
-      },
-      '/uploads': {
         target: 'http://localhost:5002',
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
+      },
+      '/socket.io': {
+        target: 'http://localhost:5002',
+        changeOrigin: true,
+        ws: true
       }
     }
   },
