@@ -1,19 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Container,
-  Paper,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  Alert,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel
-} from '@mui/material';
+import { useNavigate, Link } from 'react-router-dom';
+import { Container, Paper, TextField, Button, Typography, Box, Alert, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import axios from 'axios';
+import { authStyles } from '../theme/theme';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -66,40 +55,52 @@ const Register: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8 }}>
-        <Paper sx={{ p: 4 }}>
-          <Typography variant="h4" align="center" gutterBottom>
-            Register
+    <Box sx={authStyles.container}>
+      <Container maxWidth="sm">
+        <Paper sx={authStyles.paper}>
+          <Typography variant="h4" align="center" sx={authStyles.title}>
+            Create Account
           </Typography>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {error && (
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 3, 
+                borderRadius: '12px',
+                '& .MuiAlert-icon': { color: '#585E6C' }
+              }}
+            >
+              {error}
+            </Alert>
+          )}
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
               label="Full Name"
               name="name"
-              margin="normal"
               value={formData.name}
               onChange={handleChange}
               required
+              sx={authStyles.input}
             />
             <TextField
               fullWidth
               label="Email"
               name="email"
               type="email"
-              margin="normal"
               value={formData.email}
               onChange={handleChange}
               required
+              sx={authStyles.input}
             />
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth sx={authStyles.input}>
               <InputLabel>Role</InputLabel>
               <Select
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
                 required
+                sx={{ borderRadius: '12px' }}
               >
                 <MenuItem value="student">Student</MenuItem>
                 <MenuItem value="alumni">Alumni</MenuItem>
@@ -112,26 +113,32 @@ const Register: React.FC = () => {
               label="Password"
               name="password"
               type="password"
-              margin="normal"
               value={formData.password}
               onChange={handleChange}
               required
+              sx={authStyles.input}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              color="primary"
-              size="large"
-              sx={{ mt: 3 }}
               disabled={isLoading}
+              sx={authStyles.button}
             >
-              {isLoading ? 'Registering...' : 'Register'}
+              {isLoading ? 'Creating Account...' : 'Sign Up'}
             </Button>
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: '#B5BBC9' }}>
+                Already have an account?{' '}
+                <Link to="/login" style={{ color: '#585E6C', textDecoration: 'none', fontWeight: 500 }}>
+                  Sign in
+                </Link>
+              </Typography>
+            </Box>
           </form>
         </Paper>
-      </Box>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

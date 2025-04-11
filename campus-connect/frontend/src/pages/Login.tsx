@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Container,
-  Paper,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  Alert
-} from '@mui/material';
+import { useNavigate, Link } from 'react-router-dom';
+import { Container, Paper, TextField, Button, Typography, Box, Alert } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
+import { authStyles } from '../theme/theme';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -29,46 +22,63 @@ const Login: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8 }}>
-        <Paper sx={{ p: 4 }}>
-          <Typography variant="h4" align="center" gutterBottom>
-            Login
+    <Box sx={authStyles.container}>
+      <Container maxWidth="sm">
+        <Paper sx={authStyles.paper}>
+          <Typography variant="h4" align="center" sx={authStyles.title}>
+            Welcome Back
           </Typography>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {error && (
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 3, 
+                borderRadius: '12px',
+                '& .MuiAlert-icon': { color: '#585E6C' }
+              }}
+            >
+              {error}
+            </Alert>
+          )}
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
               label="Email"
               type="email"
-              margin="normal"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              sx={authStyles.input}
             />
             <TextField
               fullWidth
               label="Password"
               type="password"
-              margin="normal"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              sx={authStyles.input}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              color="primary"
-              size="large"
-              sx={{ mt: 3 }}
+              sx={authStyles.button}
             >
-              Login
+              Sign In
             </Button>
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: '#B5BBC9' }}>
+                Don't have an account?{' '}
+                <Link to="/register" style={{ color: '#585E6C', textDecoration: 'none', fontWeight: 500 }}>
+                  Sign up
+                </Link>
+              </Typography>
+            </Box>
           </form>
         </Paper>
-      </Box>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 
