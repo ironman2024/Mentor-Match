@@ -1,0 +1,17 @@
+{
+  "name": "campus-connect",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "start:frontend": "cd frontend && npm start",
+    "start:backend": "cd backend && npm start",
+    "dev": "concurrently \"npm run start:frontend\" \"npm run start:backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
