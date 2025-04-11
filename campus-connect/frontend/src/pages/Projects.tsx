@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -13,7 +13,12 @@ import {
   DialogActions,
   Chip,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Autocomplete
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -22,6 +27,7 @@ import {
   Code as CodeIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import socket from '../config/socket';
 
 interface Project {
   id: string;
@@ -30,6 +36,20 @@ interface Project {
   skills: string[];
   team: string[];
   status: 'open' | 'in-progress' | 'completed';
+  technicalDetails: {
+    requiredSkills: string[];
+    prerequisites: string[];
+    complexity: 'beginner' | 'intermediate' | 'advanced';
+    domain: string[];
+    estimatedDuration: number;
+    techStack: string[];
+  };
+  projectType: 'software' | 'hardware' | 'hybrid';
+  resourceLinks: {
+    title: string;
+    url: string;
+    type: 'documentation' | 'tutorial' | 'github' | 'other';
+  }[];
 }
 
 const Projects: React.FC = () => {
@@ -49,7 +69,19 @@ const Projects: React.FC = () => {
       description: 'Building a machine learning model for student performance prediction',
       skills: ['Python', 'TensorFlow', 'Data Science'],
       team: ['John Doe', 'Jane Smith'],
-      status: 'in-progress'
+      status: 'in-progress',
+      technicalDetails: {
+        requiredSkills: ['Python', 'TensorFlow'],
+        prerequisites: ['Basic Python', 'Statistics'],
+        complexity: 'intermediate',
+        domain: ['Data Science'],
+        estimatedDuration: 12,
+        techStack: ['Python', 'TensorFlow']
+      },
+      projectType: 'software',
+      resourceLinks: [
+        { title: 'TensorFlow Documentation', url: 'https://www.tensorflow.org/', type: 'documentation' }
+      ]
     },
     {
       id: '2',
@@ -57,7 +89,19 @@ const Projects: React.FC = () => {
       description: 'Developing a mobile version of the Campus Connect platform',
       skills: ['React Native', 'TypeScript', 'Node.js'],
       team: ['Alice Johnson'],
-      status: 'open'
+      status: 'open',
+      technicalDetails: {
+        requiredSkills: ['React Native', 'TypeScript'],
+        prerequisites: ['JavaScript', 'React'],
+        complexity: 'beginner',
+        domain: ['Mobile Development'],
+        estimatedDuration: 8,
+        techStack: ['React Native', 'TypeScript', 'Node.js']
+      },
+      projectType: 'software',
+      resourceLinks: [
+        { title: 'React Native Documentation', url: 'https://reactnative.dev/', type: 'documentation' }
+      ]
     }
   ];
 
@@ -72,6 +116,16 @@ const Projects: React.FC = () => {
     project.description.toLowerCase().includes(search.toLowerCase()) ||
     project.skills.some(skill => skill.toLowerCase().includes(search.toLowerCase()))
   );
+
+  useEffect(() => {
+    socket.on('new_project', (project: Project) => {
+      setProjects(prev => [project, ...prev]);
+    });
+
+    return () => {
+      socket.off('new_project');
+    };
+  }, []);
 
   return (
     <Box>
@@ -145,35 +199,110 @@ const Projects: React.FC = () => {
         ))}
       </Grid>
 
-      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="md" fullWidth>
         <DialogTitle>Create New Project</DialogTitle>
         <DialogContent>
-          <TextField
-            fullWidth
-            label="Project Title"
-            value={newProject.title}
-            onChange={(e) => setNewProject(prev => ({ ...prev, title: e.target.value }))}
-            margin="normal"
-          />
-          <TextField
-            fullWidth
-            label="Description"
-            value={newProject.description}
-            onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
-            margin="normal"
-            multiline
-            rows={4}
-          />
-          <TextField
-            fullWidth
-            label="Required Skills (comma-separated)"
-            value={newProject.skills.join(', ')}
-            onChange={(e) => setNewProject(prev => ({ 
-              ...prev, 
-              skills: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-            }))}
-            margin="normal"
-          />
+          <Grid container spacing={2}>
+            {/* Basic Info */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Project Title"
+                value={newProject.title}
+                onChange={(e) => setNewProject(prev => ({ ...prev, title: e.target.value }))}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                value={newProject.description}
+                onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
+                margin="normal"
+                multiline
+                rows={4}
+                required
+              />
+            </Grid>
+
+            {/* Technical Details */}
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Project Type</InputLabel>
+                <Select
+                  value={newProject.projectType}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, projectType: e.target.value }))}
+                  required
+                >
+                  <MenuItem value="software">Software</MenuItem>
+                  <MenuItem value="hardware">Hardware</MenuItem>
+                  <MenuItem value="hybrid">Hybrid</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Complexity Level</InputLabel>
+                <Select
+                  value={newProject.technicalDetails.complexity}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, technicalDetails: { ...prev.technicalDetails, complexity: e.target.value } }))}
+                  required
+                >
+                  <MenuItem value="beginner">Beginner</MenuItem>
+                  <MenuItem value="intermediate">Intermediate</MenuItem>
+                  <MenuItem value="advanced">Advanced</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Skills and Prerequisites */}
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                options={[]}
+                freeSolo
+                renderInput={(params) => (
+                  <TextField {...params} label="Required Skills" />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                options={[]}
+                freeSolo
+                renderInput={(params) => (
+                  <TextField {...params} label="Prerequisites" />
+                )}
+              />
+            </Grid>
+
+            {/* Tech Stack */}
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                options={[]}
+                freeSolo
+                renderInput={(params) => (
+                  <TextField {...params} label="Tech Stack" />
+                )}
+              />
+            </Grid>
+
+            {/* Duration */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Estimated Duration (weeks)"
+                value={newProject.technicalDetails.estimatedDuration}
+                onChange={(e) => setNewProject(prev => ({ ...prev, technicalDetails: { ...prev.technicalDetails, estimatedDuration: parseInt(e.target.value) } }))}
+                required
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenCreate(false)}>Cancel</Button>

@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import MainLayout from '../components/layouts/MainLayout';
 import ProtectedRoute from '../components/ProtectedRoute';
+import CalendarComponent from '../pages/CalendarComponent';
 
 // Lazy loaded components
 const Home = React.lazy(() => import('../pages/Home'));
@@ -17,6 +18,8 @@ const Mentorship = React.lazy(() => import('../pages/Mentorship'));
 const MentorshipDashboard = React.lazy(() => import('../pages/Mentorship/Dashboard'));
 const Opportunities = React.lazy(() => import('../pages/Opportunities'));
 const Inbox = React.lazy(() => import('../pages/Inbox'));
+
+
 
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
@@ -35,6 +38,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+          <Route
+          path="/calender"
+          element={
+            <ProtectedRoute>
+              <CalendarComponent />
             </ProtectedRoute>
           }
         />

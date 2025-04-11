@@ -1,32 +1,41 @@
 import React, { useState } from 'react';
-import { Outlet, useNavigate, Navigate } from 'react-router-dom';
+import { Outlet, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { 
   Box, 
   Container, 
-  Drawer, 
-  List, 
-  ListItem, 
-  ListItemIcon, 
-  ListItemText,
+  AppBar, 
+  Tabs, 
+  Tab, 
+  Button, 
   useTheme,
   useMediaQuery,
   CircularProgress,
   Fab,
-  Toolbar
+  Toolbar,
+  Typography,
+  IconButton,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
   Group as GroupIcon,
   Event as EventIcon,
   School as SchoolIcon,
-  Notifications as NotificationsIcon,
   Leaderboard as LeaderboardIcon,
   WorkOutline as OpportunitiesIcon,
-  Chat as ChatIcon
+  Chat as ChatIcon,
+  Logout as LogoutIcon
 } from '@mui/icons-material';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import Navbar from '../Navbar';
 import { useAuth } from '../../contexts/AuthContext';
 import SendMessageDialog from '../dialogs/SendMessageDialog';
+import NotificationBadge from '../notifications/NotificationBadge';
 
 const DRAWER_WIDTH = 240;
 
@@ -36,7 +45,10 @@ const MainLayout: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openSendMessage, setOpenSendMessage] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [logoutDialog, setLogoutDialog] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (loading) {
     return <CircularProgress />;
@@ -52,61 +64,157 @@ const MainLayout: React.FC = () => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Messages', icon: <ChatIcon />, path: '/inbox' }, // Add inbox menu item
+    { text: 'Messages', icon: <ChatIcon />, path: '/inbox' },
     { text: 'Mentorship', icon: <GroupIcon />, path: '/mentorship' },
     { text: 'Events', icon: <EventIcon />, path: '/events' },
     { text: 'Projects', icon: <SchoolIcon />, path: '/projects' },
-    { text: 'Leaderboard', icon: <LeaderboardIcon />, path: '/leaderboard' },
+    
+    { text: 'Event Calender', icon: <CalendarTodayIcon />, path: '/calender' },
     ...(user?.role === 'faculty' || user?.role === 'alumni' ? [
       { text: 'Opportunities', icon: <OpportunitiesIcon />, path: '/opportunities' }
     ] : [])
   ];
 
-  const drawer = (
-    <List>
-      {menuItems.map((item) => (
-        <ListItem button key={item.text} onClick={() => navigate(item.path)}>
-          <ListItemIcon>{item.icon}</ListItemIcon>
-          <ListItemText primary={item.text} />
-        </ListItem>
-      ))}
-    </List>
-  );
+  // Update active tab based on current path
+  React.useEffect(() => {
+    const index = menuItems.findIndex(item => item.path === location.pathname);
+    if (index !== -1) {
+      setActiveTab(index);
+    }
+  }, [location.pathname]);
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    navigate(menuItems[newValue].path);
+  };
+
+  const handleLogout = () => {
+    navigate('/login');
+  };
 
   return (
-    <Box display="flex">
-      <Navbar onMenuClick={handleDrawerToggle} />
-      <Drawer
-        variant={isMobile ? 'temporary' : 'permanent'}
-        open={isMobile ? mobileOpen : true}
-        onClose={handleDrawerToggle}
-        sx={{
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
-            boxSizing: 'border-box',
-          },
+    <Box>
+      <AppBar 
+        position="fixed" 
+        color="inherit" 
+        sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          background: 'rgba(255,255,255,0.98)',
+          backdropFilter: 'blur(8px)'
         }}
       >
-        {drawer}
-      </Drawer>
+        <Toolbar>
+          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <SchoolIcon sx={{ mr: 2, color: '#585E6C' }} />
+            <Typography variant="h6" sx={{ color: '#585E6C', flexGrow: 0 }}>
+              MatchMentor
+            </Typography>
+            <Tabs 
+              value={activeTab} 
+              onChange={handleTabChange}
+              sx={{
+                ml: 4,
+                '& .MuiTab-root': {
+                  textTransform: 'none',
+                  minHeight: 64,
+                  color: '#B5BBC9',
+                  '&.Mui-selected': {
+                    color: '#585E6C',
+                  }
+                },
+                '& .MuiTabs-indicator': {
+                  backgroundColor: '#585E6C',
+                }
+              }}
+            >
+              {menuItems.map((item, index) => (
+                <Tab
+                  key={item.text}
+                  icon={item.icon}
+                  label={item.text}
+                  iconPosition="start"
+                  sx={{
+                    minWidth: 'auto',
+                    px: 3,
+                  }}
+                />
+              ))}
+            </Tabs>
+            {isAuthenticated && <NotificationBadge />}
+            <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+              <Tooltip title="Logout">
+                <IconButton
+                  onClick={() => setLogoutDialog(true)}
+                  sx={{ color: '#585E6C' }}
+                >
+                  <LogoutIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      <Dialog 
+        open={logoutDialog} 
+        onClose={() => setLogoutDialog(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            p: 2
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: '#585E6C' }}>
+          Confirm Logout
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: '#B5BBC9' }}>
+            Are you sure you want to logout?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setLogoutDialog(false)}
+            sx={{ color: '#B5BBC9' }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleLogout}
+            variant="contained"
+            sx={{
+              bgcolor: '#585E6C',
+              '&:hover': { bgcolor: '#474D59' }
+            }}
+          >
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
-          ml: { sm: `${DRAWER_WIDTH}px` }
+          mt: 8,
         }}
       >
-        <Container maxWidth="lg" sx={{ mt: 8 }}>
+        <Container maxWidth="lg">
           <Outlet />
         </Container>
-        <Toolbar />
         <Fab
           color="primary"
-          sx={{ position: 'fixed', bottom: 16, right: 16 }}
+          sx={{ 
+            position: 'fixed', 
+            bottom: 16, 
+            right: 16,
+            bgcolor: '#585E6C',
+            '&:hover': {
+              bgcolor: '#474D59'
+            }
+          }}
           onClick={() => setOpenSendMessage(true)}
         >
           <ChatIcon />
