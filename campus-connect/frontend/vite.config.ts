@@ -12,6 +12,10 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '') // Ensure this matches backend routes
+      },
+      '/uploads': {
+        target: 'http://localhost:5002',
+        changeOrigin: true
       }
     }
   },

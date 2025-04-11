@@ -1,0 +1,109 @@
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import MainLayout from '../components/layouts/MainLayout';
+import ProtectedRoute from '../components/ProtectedRoute';
+
+// Lazy loaded components
+const Home = React.lazy(() => import('../pages/Home'));
+const Login = React.lazy(() => import('../pages/Login'));
+const Register = React.lazy(() => import('../pages/Register'));
+const Dashboard = React.lazy(() => import('../pages/Dashboard'));
+const Profile = React.lazy(() => import('../pages/Profile'));
+const EditProfile = React.lazy(() => import('../pages/EditProfile'));
+const Projects = React.lazy(() => import('../pages/Projects'));
+const Events = React.lazy(() => import('../pages/Events'));
+const Mentorship = React.lazy(() => import('../pages/Mentorship'));
+const Opportunities = React.lazy(() => import('../pages/Opportunities'));
+const Inbox = React.lazy(() => import('../pages/Inbox'));
+
+const AppRoutes = () => {
+  const { isAuthenticated } = useAuth();
+
+  return (
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* Protected Routes under MainLayout */}
+      <Route element={<MainLayout />}>
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:userId"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/edit"
+          element={
+            <ProtectedRoute>
+              <EditProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/*"
+          element={
+            <ProtectedRoute>
+              <Projects />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/events"
+          element={
+            <ProtectedRoute>
+              <Events />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mentorship"
+          element={
+            <ProtectedRoute>
+              <Mentorship />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/opportunities"
+          element={
+            <ProtectedRoute>
+              <Opportunities />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inbox"
+          element={
+            <ProtectedRoute>
+              <Inbox />
+            </ProtectedRoute>
+          }
+        />
+      </Route>
+    </Routes>
+  );
+};
+
+export default AppRoutes;

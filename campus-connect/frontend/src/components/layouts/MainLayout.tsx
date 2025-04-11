@@ -1,5 +1,5 @@
-import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Outlet, useNavigate, Navigate } from 'react-router-dom';
 import { 
   Box, 
   Container, 
@@ -9,7 +9,10 @@ import {
   ListItemIcon, 
   ListItemText,
   useTheme,
-  useMediaQuery 
+  useMediaQuery,
+  CircularProgress,
+  Fab,
+  Toolbar
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -18,19 +21,30 @@ import {
   School as SchoolIcon,
   Notifications as NotificationsIcon,
   Leaderboard as LeaderboardIcon,
-  WorkOutline as OpportunitiesIcon
+  WorkOutline as OpportunitiesIcon,
+  Chat as ChatIcon
 } from '@mui/icons-material';
 import Navbar from '../Navbar';
 import { useAuth } from '../../contexts/AuthContext';
+import SendMessageDialog from '../dialogs/SendMessageDialog';
 
 const DRAWER_WIDTH = 240;
 
 const MainLayout: React.FC = () => {
+  const { user, isAuthenticated, loading } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const { user } = useAuth();
+  const [openSendMessage, setOpenSendMessage] = useState(false);
   const navigate = useNavigate();
+
+  if (loading) {
+    return <CircularProgress />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -38,6 +52,7 @@ const MainLayout: React.FC = () => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Messages', icon: <ChatIcon />, path: '/inbox' }, // Add inbox menu item
     { text: 'Mentorship', icon: <GroupIcon />, path: '/mentorship' },
     { text: 'Events', icon: <EventIcon />, path: '/events' },
     { text: 'Projects', icon: <SchoolIcon />, path: '/projects' },
@@ -88,6 +103,18 @@ const MainLayout: React.FC = () => {
         <Container maxWidth="lg" sx={{ mt: 8 }}>
           <Outlet />
         </Container>
+        <Toolbar />
+        <Fab
+          color="primary"
+          sx={{ position: 'fixed', bottom: 16, right: 16 }}
+          onClick={() => setOpenSendMessage(true)}
+        >
+          <ChatIcon />
+        </Fab>
+        <SendMessageDialog 
+          open={openSendMessage}
+          onClose={() => setOpenSendMessage(false)}
+        />
       </Box>
     </Box>
   );

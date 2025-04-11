@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -15,12 +16,14 @@ interface ProfileCardProps {
 }
 
 const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
+  const navigate = useNavigate();
+
   return (
     <Card>
       <CardContent>
         <Box display="flex" flexDirection="column" alignItems="center">
           <Avatar
-            src={user?.avatar}
+            src={user?.avatar ? `http://localhost:5002${user.avatar}` : undefined}
             sx={{ width: 80, height: 80, mb: 2 }}
           >
             {user?.name?.[0] || <PersonIcon />}
@@ -44,9 +47,22 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
           </Typography>
         </Box>
 
-        <Button fullWidth variant="outlined" sx={{ mt: 2 }}>
-          Edit Profile
-        </Button>
+        <Box display="flex" gap={2} mt={2}>
+          <Button 
+            fullWidth 
+            variant="outlined" 
+            onClick={() => navigate(`/profile/edit`)}
+          >
+            Edit Profile
+          </Button>
+          <Button 
+            fullWidth 
+            variant="contained"
+            onClick={() => navigate(`/profile/${user?._id}`)}
+          >
+            View Profile
+          </Button>
+        </Box>
       </CardContent>
     </Card>
   );

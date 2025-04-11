@@ -8,29 +8,42 @@ import {
   Box,
   Divider
 } from '@mui/material';
-import { Notifications as NotificationsIcon } from '@mui/icons-material';
+import { Notifications as NotificationsIcon, Chat as ChatIcon, Event as EventIcon } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationBadge: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const fetchNotifications = async () => {
     try {
-      const response = await axios.get('http://localhost:5002/api/notifications');
+      const token = localStorage.getItem('token');
+      if (!token || !user?._id) return;
+
+      const response = await axios.get('http://localhost:5002/api/notifications', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setNotifications(response.data);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      // Clear interval on connection error
+      clearInterval(interval);
     }
   };
 
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000); // Poll every 30 seconds
-    return () => clearInterval(interval);
-  }, []);
+    if (user?._id) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -40,16 +53,33 @@ const NotificationBadge: React.FC = () => {
     setAnchorEl(null);
   };
 
-  const handleNotificationClick = async (notificationId: string) => {
+  const handleNotificationClick = async (notification: any) => {
     try {
-      await axios.patch(`http://localhost:5002/api/notifications/${notificationId}`, {
-        read: true
-      });
+      await axios.patch(`http://localhost:5002/api/notifications/${notification._id}`, 
+        { read: true }
+      );
+
+      // Handle message notifications
+      if (notification.type === 'message') {
+        navigate('/inbox');
+      }
+
       fetchNotifications();
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('Error handling notification:', error);
     }
     handleMenuClose();
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch(type) {
+      case 'message':
+        return <ChatIcon fontSize="small" />;
+      case 'event_registration':
+        return <EventIcon fontSize="small" />;
+      default:
+        return <NotificationsIcon fontSize="small" />;
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -78,7 +108,7 @@ const NotificationBadge: React.FC = () => {
           notifications.map((notification) => (
             <MenuItem
               key={notification._id}
-              onClick={() => handleNotificationClick(notification._id)}
+              onClick={() => handleNotificationClick(notification)}
               sx={{ 
                 whiteSpace: 'normal',
                 bgcolor: notification.read ? 'transparent' : 'action.hover'

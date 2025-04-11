@@ -36,7 +36,7 @@ const PostFeed: React.FC<PostFeedProps> = ({ posts }) => {
   return (
     <Box display="flex" flexDirection="column" gap={2}>
       {posts.map((post) => (
-        <Card key={post.id}>
+        <Card key={post._id}>
           <CardHeader
             avatar={
               <Avatar src={post.author.avatar}>

@@ -10,6 +10,11 @@ import fs from 'fs';
 import eventRoutes from './routes/events';
 import userRoutes from './routes/users';
 import notificationRoutes from './routes/notifications';
+import imageRoutes from './routes/images';
+import profileRoutes from './routes/profile'; // Import the profile route
+import messageRoutes from './routes/messages';
+import { Server } from 'socket.io';
+import http from 'http';
 
 dotenv.config();
 
@@ -22,7 +27,9 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+// Enable JSON parsing with larger size limit
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Add request logging middleware
 app.use((req, res, next) => {
@@ -45,6 +52,9 @@ app.use('/api/posts', postRoutes); // Mount the posts route
 app.use('/api/events', eventRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/images', imageRoutes);
+app.use('/api/profile', profileRoutes); // Mount the profile route
+app.use('/api/messages', messageRoutes); // Add messages route
 
 app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Welcome to Campus Connect API' });
@@ -72,25 +82,64 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-const initialPort = Number(process.env.PORT || 5002);
-
 const findAvailablePort = async (startPort: number): Promise<number> => {
   return new Promise((resolve, reject) => {
     const server = require('net').createServer();
     server.unref();
-    server.on('error', () => resolve(findAvailablePort(startPort + 1)));
+    server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(findAvailablePort(startPort + 1));
+      } else {
+        reject(err);
+      }
+    });
     server.listen(startPort, () => {
-      server.close(() => resolve(startPort));
+      server.close(() => {
+        resolve(startPort);
+      });
     });
   });
 };
 
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// Socket.IO connection handler
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  socket.on('join', (userId) => {
+    socket.join(userId);
+    console.log('User joined room:', userId);
+  });
+
+  socket.on('send_message', async (data) => {
+    try {
+      const { recipientId, message } = data;
+      io.to(recipientId).emit('receive_message', message);
+    } catch (error) {
+      console.error('Socket message error:', error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
+// Update server start
 const startServer = async () => {
   try {
     await connectDB();
-    const port = await findAvailablePort(initialPort);
-    app.listen(port, () => {
-      console.log(`Server is running on http://localhost:${port}`);
+    const port = await findAvailablePort(5002);
+    server.listen(port, () => {
+      console.log(`Server running on http://localhost:${port}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

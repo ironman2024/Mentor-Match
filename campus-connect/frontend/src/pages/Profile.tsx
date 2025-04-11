@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -12,7 +12,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  IconButton
+  IconButton,
+  CircularProgress
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -21,22 +22,64 @@ import {
   Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const Profile: React.FC = () => {
+  const { userId } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const isOwnProfile = user?._id === userId || !userId;
+
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
-    name: user?.name || '',
-    bio: 'Computer Science student passionate about web development and AI.',
-    email: user?.email || '',
-    department: 'Computer Science',
-    yearOfGraduation: '2024',
-    skills: ['React', 'TypeScript', 'Node.js', 'MongoDB'],
-    linkedin: 'linkedin.com/in/username',
-    github: 'github.com/username'
+    name: '',
+    bio: '',
+    department: '',
+    yearOfGraduation: '',
+    skills: [] as string[],
+    linkedin: '',
+    github: '',
+    experiences: [] as any[],
   });
-
   const [newSkill, setNewSkill] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const id = userId || user?._id;
+    if (id) {
+      fetchUserProfile(id);
+    }
+  }, [userId, user?._id]);
+
+  const fetchUserProfile = async (id: string) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`http://localhost:5002/api/profile/user/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data) {
+        const { user: userData, ...profileData } = response.data;
+        setProfile({
+          name: userData?.name || '',
+          bio: userData?.bio || '',
+          department: profileData?.department || '',
+          yearOfGraduation: profileData?.yearOfGraduation || '',
+          skills: userData?.skills || [],
+          linkedin: userData?.linkedin || '',
+          github: userData?.github || '',
+          experiences: profileData?.experiences || [],
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSave = () => {
     // TODO: Implement API call to save profile changes
@@ -60,14 +103,24 @@ const Profile: React.FC = () => {
     }));
   };
 
+  if (loading) {
+    return <CircularProgress />;
+  }
+
   return (
     <Box>
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Typography variant="h4">Profile</Typography>
-          <IconButton onClick={() => setIsEditing(!isEditing)}>
-            {isEditing ? <SaveIcon onClick={handleSave} /> : <EditIcon />}
-          </IconButton>
+          {isOwnProfile && (
+            <Button
+              variant="contained"
+              startIcon={<EditIcon />}
+              onClick={() => navigate('/profile/edit')}
+            >
+              Edit Profile
+            </Button>
+          )}
         </Box>
 
         <Grid container spacing={3}>
