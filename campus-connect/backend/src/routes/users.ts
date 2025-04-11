@@ -75,4 +75,42 @@ router.get('/search', auth, async (req: any, res) => {
   }
 });
 
+// Get mentor leaderboard
+router.get('/mentors/leaderboard', auth, async (req, res) => {
+  try {
+    const mentors = await User.find({
+      role: { $in: ['faculty', 'alumni'] }
+    })
+    .select('name role avatar department mentorRating totalRatings messageCount')
+    .sort({ mentorRating: -1, messageCount: -1 })
+    .limit(10);
+
+    res.json(mentors);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Rate a mentor
+router.post('/mentors/:id/rate', auth, async (req: any, res) => {
+  try {
+    const { rating } = req.body;
+    const mentor = await User.findById(req.params.id);
+
+    if (!mentor) {
+      return res.status(404).json({ message: 'Mentor not found' });
+    }
+
+    const newRating = (mentor.mentorRating * mentor.totalRatings + rating) / (mentor.totalRatings + 1);
+    
+    mentor.mentorRating = Number(newRating.toFixed(1));
+    mentor.totalRatings += 1;
+    await mentor.save();
+
+    res.json({ message: 'Rating submitted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;

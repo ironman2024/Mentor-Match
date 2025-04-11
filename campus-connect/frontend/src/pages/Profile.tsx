@@ -52,6 +52,11 @@ const Profile: React.FC = () => {
     }
   }, [userId, user?._id]);
 
+  const formatSkills = (skills: any[]) => {
+    if (!Array.isArray(skills)) return [];
+    return skills.map(skill => typeof skill === 'object' ? skill.name : skill);
+  };
+
   const fetchUserProfile = async (id: string) => {
     try {
       setLoading(true);
@@ -68,7 +73,7 @@ const Profile: React.FC = () => {
           bio: userData?.bio || '',
           department: profileData?.department || '',
           yearOfGraduation: profileData?.yearOfGraduation || '',
-          skills: userData?.skills || [],
+          skills: formatSkills(userData?.skills || []),
           linkedin: userData?.linkedin || '',
           github: userData?.github || '',
           experiences: profileData?.experiences || [],
@@ -177,7 +182,7 @@ const Profile: React.FC = () => {
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom>Skills</Typography>
             <Box sx={{ mb: 2 }}>
-              {profile.skills.map((skill) => (
+              {profile.skills.map((skill: string) => (
                 <Chip
                   key={skill}
                   label={skill}

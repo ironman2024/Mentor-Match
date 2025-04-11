@@ -41,18 +41,27 @@ const EditProfile: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!user?._id) {
-      showNotification('Please log in to edit your profile', 'error');
-      return;
+    if (user?._id) {
+      fetchProfile();
     }
-    fetchProfile();
   }, [user]);
 
   const fetchProfile = async () => {
     try {
-      if (!user?._id) throw new Error('User not authenticated');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
-      const response = await axios.get(`http://localhost:5002/api/profile/user/${user._id}`);
+      if (!user?._id) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await axios.get(`http://localhost:5002/api/profile/user/${user._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       if (response.data) {
         const { user: userData, ...profileData } = response.data;
@@ -61,7 +70,11 @@ const EditProfile: React.FC = () => {
           bio: userData?.bio || '',
           department: profileData?.department || '',
           yearOfGraduation: profileData?.yearOfGraduation || '',
-          skills: userData?.skills || [],
+          skills: Array.isArray(userData?.skills) 
+            ? userData.skills.map((skill: any) => 
+                typeof skill === 'object' ? skill.name : skill
+              )
+            : [],
           linkedin: userData?.linkedin || '',
           github: userData?.github || '',
           experiences: profileData?.experiences || [],
@@ -76,20 +89,29 @@ const EditProfile: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      if (!user?._id) throw new Error('User not authenticated');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
-      const response = await axios.put('http://localhost:5002/api/profile', {
+      await axios.put('http://localhost:5002/api/profile', {
         ...profile,
-        userId: user._id
+        userId: user?._id
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (response.data) {
-        showNotification('Profile updated successfully!', 'success');
-        await fetchProfile();
-      }
+      showNotification('Profile updated successfully!', 'success');
+      await fetchProfile();
     } catch (error: any) {
       console.error('Error updating profile:', error);
-      showNotification(error.response?.data?.message || 'Error updating profile', 'error');
+      showNotification(
+        error.response?.data?.message || 'Error updating profile',
+        'error'
+      );
     }
   };
 
@@ -184,7 +206,7 @@ const EditProfile: React.FC = () => {
           <Grid item xs={12} display="flex" justifyContent="center">
             <Box position="relative">
               <Avatar
-                src={profile.avatar}
+                src={profile.avatar ? `http://localhost:5002${profile.avatar}` : undefined}
                 sx={{ width: 120, height: 120 }}
               />
               <input
@@ -265,15 +287,16 @@ const EditProfile: React.FC = () => {
 
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom>Skills</Typography>
-            <Box display="flex" gap={1} mb={2}>
-              {profile.skills.map(skill => (
+            <Box sx={{ mb: 2 }}>
+              {profile.skills.map((skill: string, index: number) => (
                 <Chip
-                  key={skill}
+                  key={`${skill}-${index}`}
                   label={skill}
                   onDelete={() => setProfile(prev => ({
                     ...prev,
                     skills: prev.skills.filter(s => s !== skill)
                   }))}
+                  sx={{ m: 0.5 }}
                 />
               ))}
             </Box>
@@ -287,7 +310,7 @@ const EditProfile: React.FC = () => {
               <Button
                 variant="contained"
                 onClick={handleAddSkill}
-                startIcon={<AddIcon />}
+                disabled={!newSkill.trim()}
               >
                 Add
               </Button>

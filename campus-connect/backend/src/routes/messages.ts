@@ -107,6 +107,11 @@ router.post('/', auth, async (req: any, res) => {
     await message.save();
     await message.populate('sender', 'name avatar');
 
+    // Update recipient's message count
+    await User.findByIdAndUpdate(recipientId, {
+      $inc: { messageCount: 1 }
+    });
+
     // Socket.IO notification handled in index.ts
     res.status(201).json(message);
   } catch (error: any) {

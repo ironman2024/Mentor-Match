@@ -24,6 +24,8 @@ const PORT = Number(process.env.PORT || 5002); // Default to 5002 if PORT is not
 // Updated CORS configuration
 app.use(cors({
   origin: 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 
@@ -73,13 +75,21 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Update error handling
+// Add better error logging
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Global error:', err);
-  res.status(500).json({ 
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  console.error('Error details:', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method
   });
+  
+  if (!res.headersSent) {
+    res.status(err.status || 500).json({ 
+      message: err.message || 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? err : undefined
+    });
+  }
 });
 
 const findAvailablePort = async (startPort: number): Promise<number> => {
@@ -137,9 +147,9 @@ io.on('connection', (socket) => {
 const startServer = async () => {
   try {
     await connectDB();
-    const port = await findAvailablePort(5002);
-    server.listen(port, () => {
-      console.log(`Server running on http://localhost:${port}`);
+    const port = Number(process.env.PORT || 5002);
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Server running at http://localhost:${port}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

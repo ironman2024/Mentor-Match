@@ -32,15 +32,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Update token management
+  const setAuthToken = (token: string | null) => {
+    if (token) {
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
+    }
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          const response = await axios.get('http://localhost:5002/api/auth/me');
+          const response = await axios.get('http://localhost:5002/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
           setUser(response.data);
         } catch (error) {
+          console.error('Auth initialization error:', error);
           localStorage.removeItem('token');
           delete axios.defaults.headers.common['Authorization'];
         }
@@ -67,8 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await axios.post(`${API_URL}/auth/login`, { email, password });
       const { token, user } = response.data;
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setAuthToken(token);
       setUser(user);
     } catch (error) {
       console.error('Login error:', error); // Add error logging
@@ -78,25 +92,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
+    setAuthToken(null);
     setUser(null);
   }, []);
 
-  // Add interceptor to add token to all requests
+  // Update axios interceptors
   useEffect(() => {
-    axios.interceptors.request.use(
+    const interceptor = axios.interceptors.request.use(
       (config) => {
         const token = localStorage.getItem('token');
         if (token) {
           config.headers['Authorization'] = `Bearer ${token}`;
         }
+        config.withCredentials = true;
         return config;
       },
       (error) => {
         return Promise.reject(error);
       }
     );
+
+    return () => {
+      axios.interceptors.request.eject(interceptor);
+    };
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
   }, []);
 
   return (

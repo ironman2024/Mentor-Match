@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -14,7 +14,15 @@ import {
   Chip,
   Avatar,
   Rating,
-  InputAdornment
+  InputAdornment,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper as MuiPaper,
+  styled
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -22,6 +30,7 @@ import {
   Star as StarIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
 
 interface Mentor {
   id: string;
@@ -39,6 +48,29 @@ const Mentorship: React.FC = () => {
   const [search, setSearch] = useState('');
   const [openRequest, setOpenRequest] = useState(false);
   const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null);
+  const [mentorLeaderboard, setMentorLeaderboard] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchMentorLeaderboard();
+  }, []);
+
+  const fetchMentorLeaderboard = async () => {
+    try {
+      const response = await axios.get('http://localhost:5002/api/users/mentors/leaderboard');
+      setMentorLeaderboard(response.data);
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+    }
+  };
+
+  const handleRateMentor = async (mentorId: string, rating: number) => {
+    try {
+      await axios.post(`http://localhost:5002/api/users/mentors/${mentorId}/rate`, { rating });
+      fetchMentorLeaderboard();
+    } catch (error) {
+      console.error('Error rating mentor:', error);
+    }
+  };
 
   const mockMentors: Mentor[] = [
     {
@@ -82,6 +114,77 @@ const Mentorship: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Find a Mentor
       </Typography>
+
+      {/* Mentor Leaderboard */}
+      <Box mb={4}>
+        <Typography variant="h5" gutterBottom>
+          Top Mentors
+        </Typography>
+        <TableContainer component={MuiPaper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Rank</TableCell>
+                <TableCell>Mentor</TableCell>
+                <TableCell align="center">Rating</TableCell>
+                <TableCell align="center">Total Ratings</TableCell>
+                <TableCell align="center">Messages</TableCell>
+                <TableCell align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {mentorLeaderboard.map((mentor, index) => (
+                <TableRow key={mentor._id}>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>
+                    <Box display="flex" alignItems="center">
+                      <Avatar src={mentor.avatar} sx={{ mr: 2 }}>
+                        {mentor.name[0]}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle2">{mentor.name}</Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {mentor.role} • {mentor.department}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Rating
+                      value={mentor.mentorRating}
+                      precision={0.5}
+                      readOnly
+                    />
+                    ({mentor.mentorRating.toFixed(1)})
+                  </TableCell>
+                  <TableCell align="center">{mentor.totalRatings}</TableCell>
+                  <TableCell align="center">{mentor.messageCount}</TableCell>
+                  <TableCell align="center">
+                    {user?.role === 'student' && (
+                      <>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() => handleRequestMentorship(mentor)}
+                          sx={{ mr: 1 }}
+                        >
+                          Request
+                        </Button>
+                        <Rating
+                          size="small"
+                          onChange={(_, value) => {
+                            if (value) handleRateMentor(mentor._id, value);
+                          }}
+                        />
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
 
       <TextField
         fullWidth

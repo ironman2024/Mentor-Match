@@ -6,15 +6,27 @@ export interface IUser extends Document {
   password: string;
   role: 'student' | 'alumni' | 'faculty' | 'club';
   name: string;
-  skills: string[];
+  skills: {
+    name: string;
+    proficiency: number;
+    endorsements: {
+      user: mongoose.Schema.Types.ObjectId;
+      comment: string;
+    }[];
+  }[];
   bio?: string;
-  // New fields
   avatar?: string;
   linkedin?: string;
   github?: string;
   yearOfGraduation?: number;
   department?: string;
-  achievements: string[];
+  achievements: {
+    type: 'project' | 'hackathon' | 'certification' | 'mentorship';
+    title: string;
+    description: string;
+    date: Date;
+    verificationUrl: string;
+  }[];
   experiences: {
     title: string;
     company: string;
@@ -27,6 +39,28 @@ export interface IUser extends Document {
   mentorshipAvailability?: boolean;
   areasOfExpertise: string[];
   comparePassword(candidatePassword: string): Promise<boolean>;
+  mentorRating: number;
+  totalRatings: number;
+  messageCount: number;
+  mentorshipStats: {
+    successfulMentorships: number;
+    activeProjects: number;
+    menteeRatings: {
+      mentee: mongoose.Schema.Types.ObjectId;
+      rating: number;
+      feedback: string;
+      date: Date;
+    }[];
+  };
+  teamPreferences: {
+    preferredRoles: string[];
+    projectInterests: string[];
+    availability: {
+      weekdays: boolean;
+      weekends: boolean;
+      timeSlots: string[];
+    };
+  };
 }
 
 const userSchema = new mongoose.Schema({
@@ -38,14 +72,30 @@ const userSchema = new mongoose.Schema({
     enum: ['student', 'alumni', 'faculty', 'club'] 
   },
   name: { type: String, required: true },
-  skills: [String],
+  skills: {
+    type: [{
+      name: String,
+      proficiency: { type: Number, min: 1, max: 5 }, // 1: Beginner, 5: Expert
+      endorsements: [{
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        comment: String
+      }]
+    }],
+    default: []
+  },
   bio: String,
   avatar: String,
   linkedin: String,
   github: String,
   yearOfGraduation: Number,
   department: String,
-  achievements: [String],
+  achievements: [{
+    type: { type: String, enum: ['project', 'hackathon', 'certification', 'mentorship'] },
+    title: String,
+    description: String,
+    date: Date,
+    verificationUrl: String
+  }],
   experiences: [{
     title: String,
     company: String,
@@ -56,7 +106,29 @@ const userSchema = new mongoose.Schema({
   reputation: { type: Number, default: 0 },
   badges: [String],
   mentorshipAvailability: Boolean,
-  areasOfExpertise: [String]
+  areasOfExpertise: [String],
+  mentorRating: { type: Number, default: 0 },
+  totalRatings: { type: Number, default: 0 },
+  messageCount: { type: Number, default: 0 },
+  mentorshipStats: {
+    successfulMentorships: { type: Number, default: 0 },
+    activeProjects: { type: Number, default: 0 },
+    menteeRatings: [{ 
+      mentee: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      rating: Number,
+      feedback: String,
+      date: { type: Date, default: Date.now }
+    }]
+  },
+  teamPreferences: {
+    preferredRoles: [String],
+    projectInterests: [String],
+    availability: {
+      weekdays: Boolean,
+      weekends: Boolean,
+      timeSlots: [String]
+    }
+  }
 }, { timestamps: true });
 
 userSchema.pre('save', async function(next) {

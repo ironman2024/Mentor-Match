@@ -18,6 +18,11 @@ interface ProfileCardProps {
 const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
   const navigate = useNavigate();
 
+  const formatSkills = (skills: any[]) => {
+    if (!Array.isArray(skills)) return [];
+    return skills.map(skill => typeof skill === 'object' ? skill.name : skill);
+  };
+
   return (
     <Card>
       <CardContent>
@@ -43,7 +48,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
             Skills
           </Typography>
           <Typography color="textSecondary" paragraph>
-            {user?.skills?.join(', ') || 'No skills added yet'}
+            {formatSkills(user?.skills || []).join(', ') || 'No skills added yet'}
           </Typography>
         </Box>
 

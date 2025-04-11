@@ -1,8 +1,7 @@
 import express from 'express';
 import auth from '../middleware/auth';
 import UserProfile from '../models/UserProfile';
-import Post from '../models/Post';
-import User from '../models/User';
+import User, { IUser } from '../models/User';
 import multer from 'multer';
 import path from 'path';
 
@@ -32,39 +31,57 @@ const upload = multer({
 // Get user profile
 router.get('/user/:userId', auth, async (req, res) => {
   try {
-    console.log('Fetching profile for user:', req.params.userId);
-    
-    if (!req.params.userId) {
-      return res.status(400).json({ message: 'User ID is required' });
-    }
-
     const userProfile = await UserProfile.findOne({ user: req.params.userId })
-      .populate('user', 'name email avatar role bio skills linkedin github');
+      .populate<{ user: IUser }>('user', 'name email avatar role bio skills linkedin github');
 
     if (!userProfile) {
       // If no profile exists, return user data only
       const userData = await User.findById(req.params.userId)
-        .select('name email avatar role bio skills linkedin github');
+        .select('name email avatar role bio skills linkedin github')
+        .lean();
       
       if (!userData) {
         return res.status(404).json({ message: 'User not found' });
       }
 
+      // Transform skills data
+      const formattedSkills = Array.isArray(userData.skills) 
+        ? userData.skills.map((skill: any) => 
+            typeof skill === 'object' ? skill.name : skill
+          )
+        : [];
+
       return res.json({
-        user: userData,
+        user: {
+          ...userData,
+          skills: formattedSkills
+        },
         department: '',
         yearOfGraduation: '',
         experiences: []
       });
     }
 
-    res.json(userProfile);
+    // Transform populated user data
+    const transformedUser = {
+      ...userProfile.user.toObject(),
+      skills: Array.isArray(userProfile.user.skills) 
+        ? userProfile.user.skills.map((skill: any) => 
+            typeof skill === 'object' ? skill.name : skill
+          )
+        : []
+    };
+
+    // Create the response object
+    const responseData = {
+      ...userProfile.toObject(),
+      user: transformedUser
+    };
+
+    res.json(responseData);
   } catch (error: any) {
     console.error('Profile fetch error:', error);
-    res.status(500).json({ 
-      message: 'Error fetching profile',
-      error: error.message 
-    });
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -97,9 +114,6 @@ router.post('/avatar', auth, upload.single('avatar'), async (req: any, res) => {
 // Update profile
 router.put('/', auth, async (req: any, res) => {
   try {
-    console.log('Updating profile. Body:', req.body);
-    console.log('Auth user:', req.user);
-
     if (!req.user?._id) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
@@ -112,29 +126,51 @@ router.put('/', auth, async (req: any, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Validate and format skills
+    const formattedSkills = Array.isArray(req.body.skills) 
+      ? req.body.skills.map((skill: any) => {
+          if (typeof skill === 'string') {
+            return {
+              name: skill,
+              proficiency: 1,
+              endorsements: []
+            };
+          }
+          return skill;
+        })
+      : [];
+
     // Update user model fields
-    user.name = req.body.name;
-    user.bio = req.body.bio;
-    user.skills = req.body.skills;
-    user.linkedin = req.body.linkedin;
-    user.github = req.body.github;
-    await user.save();
+    const userUpdateData = {
+      name: req.body.name,
+      bio: req.body.bio,
+      skills: formattedSkills,
+      linkedin: req.body.linkedin,
+      github: req.body.github
+    };
+
+    // Update user document
+    await User.findByIdAndUpdate(req.user._id, userUpdateData, { new: true });
+
+    // Update profile document
+    const profileData = {
+      department: req.body.department,
+      yearOfGraduation: req.body.yearOfGraduation,
+      experiences: Array.isArray(req.body.experiences) ? req.body.experiences : []
+    };
 
     if (!profile) {
       profile = new UserProfile({
         user: req.user._id,
-        department: req.body.department,
-        yearOfGraduation: req.body.yearOfGraduation,
-        experiences: req.body.experiences || []
+        ...profileData
       });
     } else {
-      profile.department = req.body.department;
-      profile.yearOfGraduation = req.body.yearOfGraduation;
-      profile.experiences = req.body.experiences || [];
+      Object.assign(profile, profileData);
     }
 
     await profile.save();
     
+    // Fetch updated profile with populated user data
     const updatedProfile = await UserProfile.findOne({ user: req.user._id })
       .populate('user', 'name email avatar role bio skills linkedin github');
 
