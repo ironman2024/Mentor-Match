@@ -14,10 +14,11 @@ import { Send as SendIcon, SmartToy as AIIcon } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 
+// Update interface to match message types
 interface AIChatBoxProps {
   onSendMessage: (message: string) => void;
   messages: Array<{
-    role: 'user' | 'ai';
+    role: 'user' | 'ai';  // Changed from 'assistant' to 'ai'
     content: string;
     timestamp?: Date;
   }>;
@@ -32,6 +33,7 @@ const AIChatBox: React.FC<AIChatBoxProps> = ({
   error 
 }) => {
   const [input, setInput] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -42,12 +44,27 @@ const AIChatBox: React.FC<AIChatBoxProps> = ({
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (error) {
+      setLocalError(error);
+    }
+  }, [error]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    setLocalError(null);
     
-    await onSendMessage(input);
-    setInput('');
+    if (!input.trim()) {
+      setLocalError('Please enter a message');
+      return;
+    }
+
+    try {
+      await onSendMessage(input);
+      setInput('');
+    } catch (err) {
+      setLocalError((err as Error).message);
+    }
   };
 
   const formatMessageTime = (timestamp?: Date) => {
@@ -204,9 +221,16 @@ const AIChatBox: React.FC<AIChatBoxProps> = ({
             <CircularProgress size={24} />
           </Box>
         )}
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
+        {localError && (
+          <Alert 
+            severity="error" 
+            onClose={() => setLocalError(null)}
+            sx={{ 
+              mb: 2,
+              '& .MuiAlert-message': { width: '100%' }
+            }}
+          >
+            {localError}
           </Alert>
         )}
         <div ref={messagesEndRef} />
@@ -231,6 +255,7 @@ const AIChatBox: React.FC<AIChatBoxProps> = ({
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask anything about farming or agriculture..."
           disabled={isLoading}
+          error={!!localError}
           sx={{
             '& .MuiOutlinedInput-root': {
               borderRadius: 2,

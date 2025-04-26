@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState } from 'react';
-import axios from 'axios';
+import { getChatResponse } from '../services/aiChat';
 
 interface Message {
-  role: 'user' | 'assistant';
+  role: 'user' | 'ai';
   content: string;
   timestamp: Date;
 }
@@ -13,10 +13,9 @@ interface AIContextType {
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   error: string | null;
+  setError: React.Dispatch<React.SetStateAction<string | null>>;
+  sendMessage: (message: string) => Promise<void>;
 }
-
-const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const AIContext = createContext<AIContextType | undefined>(undefined);
 
@@ -27,56 +26,45 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const sendMessage = async (message: string) => {
     try {
-      setIsLoading(true);
       setError(null);
+      setIsLoading(true);
 
-      // Add user message
-      const userMessage: Message = {
+      const userMessage = {
         role: 'user',
         content: message,
         timestamp: new Date()
       };
+      
       setMessages(prev => [...prev, userMessage]);
 
-      // Call Gemini API
-      const response = await axios.post(
-        `${GEMINI_API_ENDPOINT}?key=${API_KEY}`,
-        {
-          contents: [{
-            parts: [{ text: message }]
-          }]
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-
-      // Extract AI response
-      const aiResponse = response.data.candidates[0].content.parts[0].text;
-
-      // Add AI response to messages
-      const aiMessage: Message = {
-        role: 'assistant',
-        content: aiResponse,
+      const response = await getChatResponse(message);
+      
+      const aiMessage = {
+        role: 'ai',
+        content: response,
         timestamp: new Date()
       };
+      
       setMessages(prev => [...prev, aiMessage]);
-
-    } catch (err: any) {
-      console.error('AI Chat error:', err);
-      setError(err.response?.data?.error?.message || 'Failed to get AI response');
+    } catch (error: any) {
+      setError(error.message || 'Failed to get AI response');
+      throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <AIContext.Provider value={{ messages, setMessages, isLoading, setIsLoading, error }}>
-      {children}
-    </AIContext.Provider>
-  );
+  const value = {
+    messages,
+    setMessages,
+    isLoading,
+    setIsLoading,
+    error,
+    setError,
+    sendMessage
+  };
+
+  return <AIContext.Provider value={value}>{children}</AIContext.Provider>;
 };
 
 export const useAI = () => {

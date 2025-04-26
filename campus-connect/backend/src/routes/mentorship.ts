@@ -246,4 +246,58 @@ router.patch('/request/:id/status', auth, async (req: any, res) => {
   }
 });
 
+// Rate mentor endpoint
+router.post('/rate/:mentorId', auth, async (req: any, res) => {
+  try {
+    const { mentorId } = req.params;
+    const { rating, comment } = req.body;  // Get comment from request body
+
+    // Verify mentor exists
+    const mentor = await User.findById(mentorId);
+    if (!mentor) {
+      return res.status(404).json({ message: 'Mentor not found' });
+    }
+
+    // Get existing session to verify student can rate
+    const session = await MentorshipSession.findOne({
+      mentor: mentorId,
+      mentee: req.user._id,
+      status: 'completed'
+    });
+
+    if (!session) {
+      return res.status(403).json({ 
+        message: 'You can only rate mentors after completing a mentorship session' 
+      });
+    }
+
+    // Update mentor's rating
+    const newRating = (mentor.mentorRating * mentor.totalRatings + rating) / (mentor.totalRatings + 1);
+    mentor.mentorRating = Number(newRating.toFixed(1));
+    mentor.totalRatings += 1;
+    
+    await mentor.save();
+    
+    // Update session with feedback including comment
+    session.feedback = {
+      rating,
+      comment: comment || '', // Default to empty string if no comment provided
+      givenAt: new Date()
+    };
+    await session.save();
+
+    res.json({ 
+      message: 'Rating submitted successfully',
+      newRating: mentor.mentorRating
+    });
+
+  } catch (error: any) {
+    console.error('Error rating mentor:', error);
+    res.status(500).json({ 
+      message: 'Failed to submit rating',
+      error: error.message 
+    });
+  }
+});
+
 export default router;

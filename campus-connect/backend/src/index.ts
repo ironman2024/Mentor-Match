@@ -21,25 +21,42 @@ import projectRoutes from './routes/projects';
 dotenv.config();
 
 const app = express();
-const PORT = Number(process.env.PORT || 5002); // Default to 5002 if PORT is not defined
+const PORT = process.env.PORT || 5002;
 
 // Updated CORS configuration
 app.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:3001'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['Authorization']
 }));
 
 // Enable JSON parsing with larger size limit
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Add request logging middleware
+// Add better request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Request Headers:', req.headers);
+  console.log('Request Body:', req.body);
+  
+  // Add response logging with proper typing
+  const oldSend = res.send;
+  res.send = function(...args) {
+    console.log('Response:', args[0]);
+    return oldSend.apply(res, args);
+  };
+  
   next();
 });
+
+// Ensure JWT_SECRET is set
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET is not set. Using default secret. This is not secure for production!');
+  process.env.JWT_SECRET = 'default_jwt_secret_for_development';
+}
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads/images');
@@ -96,35 +113,6 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   }
 });
 
-const findAvailablePort = async (startPort: number): Promise<number> => {
-  let port = startPort;
-  const server = require('net').createServer();
-
-  const isPortAvailable = (port: number) =>
-    new Promise((resolve) => {
-      server.once('error', () => {
-        server.removeAllListeners('listening');
-        resolve(false);
-      });
-      
-      server.once('listening', () => {
-        server.close();
-        resolve(true);
-      });
-      
-      server.listen(port, '0.0.0.0');
-    });
-
-  while (!(await isPortAvailable(port))) {
-    port++;
-    if (port - startPort > 10) {
-      throw new Error('No available ports found');
-    }
-  }
-
-  return port;
-};
-
 export let io: Server; // Export io instance
 
 const initSocketIO = (server: http.Server) => {
@@ -153,26 +141,32 @@ const initSocketIO = (server: http.Server) => {
 
 const startServer = async () => {
   try {
-    // Connect to MongoDB first
     await connectDB();
-
-    // Find available port
-    const desiredPort = Number(process.env.PORT || 5002);
-    const port = await findAvailablePort(desiredPort);
     
-    if (port !== desiredPort) {
-      console.log(`Port ${desiredPort} is in use, using port ${port}`);
-      process.env.PORT = port.toString();
-    }
-
-    // Create HTTP server
-    const server = http.createServer(app);
-    io = initSocketIO(server); // Initialize Socket.IO
-
-    // Start server
-    server.listen(port, '0.0.0.0', () => {
-      console.log(`Server running at http://localhost:${port}`);
+    // Remove the findAvailablePort call and use PORT directly
+    const server = app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
     });
+
+    // Initialize socket.io after server is started
+    initSocketIO(server);
+
+    // Graceful shutdown handler
+    const shutdown = () => {
+      console.log('Shutting down gracefully...');
+      server.close(() => {
+        mongoose.connection.close().then(() => {
+          console.log('MongoDB connection closed');
+          process.exit(0);
+        }).catch(err => {
+          console.error('Error closing MongoDB connection:', err);
+          process.exit(1);
+        });
+      });
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
 
   } catch (error) {
     console.error('Failed to start server:', error);

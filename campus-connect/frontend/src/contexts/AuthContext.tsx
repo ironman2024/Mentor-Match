@@ -32,7 +32,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Update token management
   const setAuthToken = (token: string | null) => {
@@ -50,16 +49,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const response = await axios.get('http://localhost:5002/api/auth/me', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          const response = await axios.get(`${API_URL}/auth/me`);
           setUser(response.data);
         } catch (error) {
           console.error('Auth initialization error:', error);
           localStorage.removeItem('token');
           delete axios.defaults.headers.common['Authorization'];
+          setUser(null);
         }
       }
       setLoading(false);
@@ -82,28 +79,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axiosInstance.post('/auth/login', {
+      const response = await axios.post(`${API_URL}/auth/login`, {
         email,
         password
       });
-      
+
       if (response.data.token) {
-        setAuthToken(response.data.token);
-        setUser(response.data.user);
-        setIsAuthenticated(true);
+        localStorage.setItem('token', response.data.token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+        
+        // Update user state with proper user data
+        const userData = {
+          _id: response.data.user._id || response.data.user.id,
+          email: response.data.user.email,
+          name: response.data.user.name,
+          role: response.data.user.role,
+          avatar: response.data.user.avatar,
+          skills: response.data.user.skills || [],
+          reputation: response.data.user.reputation || 0,
+          badges: response.data.user.badges || []
+        };
+        
+        setUser(userData);
         return response.data;
+      } else {
+        throw new Error('Invalid response from server');
       }
-    } catch (error) {
-      setIsAuthenticated(false);
-      console.error('Login error:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('Login error:', error.response?.data || error.message);
+      // Throw a more descriptive error
+      if (error.response?.status === 401) {
+        throw new Error('Invalid email or password');
+      }
+      throw new Error(error.response?.data?.message || 'Failed to login');
     }
   };
 
   const logout = useCallback(() => {
     setAuthToken(null);
     setUser(null);
-    setIsAuthenticated(false);
   }, []);
 
   // Update axios interceptors
@@ -139,7 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user, 
       login, 
       logout, 
-      isAuthenticated,
+      isAuthenticated: !!user, 
       loading,
       error 
     }}>
@@ -153,3 +167,7 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
+function setIsAuthenticated(arg0: boolean) {
+  throw new Error('Function not implemented.');
+}
+

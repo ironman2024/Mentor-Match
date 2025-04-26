@@ -16,12 +16,34 @@ import {
   IconButton,
   Tooltip,
   Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Rating,
 } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
-import { Send as SendIcon, VideoCall as VideoCallIcon } from '@mui/icons-material';
+import { Send as SendIcon, VideoCall as VideoCallIcon, Star as StarIcon } from '@mui/icons-material';
 import emptyChat from './../images/Chatting-rafiki.svg'; // Add this import
+import { useSnackbar } from 'notistack';
+
+interface Conversation {
+  _id: string;
+  otherUser: {
+    _id: string;
+    name: string;
+    avatar?: string;
+  };
+  lastMessage: {
+    content: string;
+    createdAt: string;
+  };
+  unreadCount: number;
+  type?: string;
+  mentorshipId?: string;
+}
 
 const EmptyStateIllustration = () => (
   <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -32,7 +54,7 @@ const EmptyStateIllustration = () => (
 );
 
 const Inbox: React.FC = () => {
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -41,6 +63,8 @@ const Inbox: React.FC = () => {
   const [messages, setMessages] = useState<any[]>([]);
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const { enqueueSnackbar } = useSnackbar();
 
   // Add separate polling for active chat
   useEffect(() => {
@@ -85,11 +109,14 @@ const Inbox: React.FC = () => {
 
   const fetchConversations = async () => {
     try {
-      const response = await axios.get('http://localhost:5002/api/messages/conversations');
-      // Sort conversations by latest message timestamp
+      const response = await axios.get('http://localhost:5002/api/messages/conversations', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
       const sortedConversations = response.data.sort((a: any, b: any) =>
         new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime()
       );
+      
       setConversations(sortedConversations);
       setLoading(false);
     } catch (error) {
@@ -99,9 +126,14 @@ const Inbox: React.FC = () => {
   };
 
   const fetchMessages = async () => {
+    if (!selectedChat) return;
     try {
-      const response = await axios.get(`http://localhost:5002/api/messages/${selectedChat.otherUser._id}`);
-      // Sort messages by timestamp
+      const response = await axios.get(
+        `http://localhost:5002/api/messages/${selectedChat.otherUser._id}`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
       const sortedMessages = response.data.sort((a: any, b: any) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       );
@@ -114,29 +146,36 @@ const Inbox: React.FC = () => {
 
   const handleSend = async () => {
     if (!message.trim() || !selectedChat) return;
-
     try {
-      const response = await axios.post('http://localhost:5002/api/messages', {
-        recipientId: selectedChat.otherUser._id,
-        content: message
-      });
-
-      // Update messages with correct ordering
-      setMessages(prev => [...prev, response.data].sort((a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      ));
+      const response = await axios.post(
+        'http://localhost:5002/api/messages',
+        {
+          recipientId: selectedChat.otherUser._id,
+          content: message
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      // Immediately add the new message to the messages array
+      const newMessage = response.data;
+      setMessages(prev => [...prev, newMessage]);
       setMessage('');
       scrollToBottom();
-     
-      // Update conversations list
-      fetchConversations();
+      // Update the conversations list without full refresh
+      const updatedConversations = conversations.map(conv => {
+        if (conv._id === selectedChat._id) {
+          return {
+            ...conv,
+            lastMessage: newMessage
+          };
+        }
+        return conv;
+      });
+      setConversations(updatedConversations);
     } catch (error) {
       console.error('Error sending message:', error);
     }
-  };
-
-  const handleMessageSent = () => {
-    fetchConversations();
   };
 
   const scrollToBottom = () => {
@@ -148,10 +187,38 @@ const Inbox: React.FC = () => {
     window.open(meetingURL, "_blank");
   };
 
+  const handleRateMentor = async (rating: number) => {
+    if (!selectedChat?.otherUser?._id) {
+      enqueueSnackbar('Unable to rate mentor: Invalid mentor information', { variant: 'error' });
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `http://localhost:5002/api/mentorship/rate/${selectedChat.otherUser._id}`,
+        { rating },
+        {
+          headers: { 
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data) {
+        enqueueSnackbar('Rating submitted successfully', { variant: 'success' });
+        setRatingDialogOpen(false);
+      }
+    } catch (error: any) {
+      console.error('Error rating mentor:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to submit rating';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
+  };
+
   const renderMessageContent = (content: string) => {
     // URL regex pattern
     const urlPattern = /(https?:\/\/[^\s]+)/g;
-    
     const parts = content.split(urlPattern);
     return parts.map((part, index) => {
       if (part.match(urlPattern)) {
@@ -205,7 +272,6 @@ const Inbox: React.FC = () => {
             Messages
           </Typography>
         </Box>
-       
         <List sx={{
           overflowY: 'auto',
           flexGrow: 1,
@@ -244,6 +310,7 @@ const Inbox: React.FC = () => {
                 selected={selectedChat?._id === conv._id}
                 onClick={() => setSelectedChat(conv)}
                 sx={{
+                  color: '#585E6C',
                   borderLeft: selectedChat?._id === conv._id ? '4px solid #585E6C' : 'none',
                   '&.Mui-selected': {
                     bgcolor: 'rgba(88,94,108,0.08)',
@@ -305,7 +372,6 @@ const Inbox: React.FC = () => {
           )}
         </List>
       </Paper>
-
       {/* Chat Area */}
       <Paper elevation={0} sx={{
         flexGrow: 1,
@@ -337,21 +403,38 @@ const Inbox: React.FC = () => {
                   </Typography>
                 )}
               </Box>
-              <Tooltip title="Start video call">
-                <IconButton
-                  onClick={handleVideoCall}
-                  sx={{
-                    color: '#585E6C',
-                    '&:hover': {
-                      bgcolor: 'rgba(88,94,108,0.08)',
-                    }
-                  }}
-                >
-                  <VideoCallIcon />
-                </IconButton>
-              </Tooltip>
+              <Box>
+                {selectedChat?.type === 'mentorship' && user?.role === 'student' && (
+                  <Tooltip title="Rate Mentor">
+                    <IconButton
+                      onClick={() => setRatingDialogOpen(true)}
+                      sx={{
+                        mr: 1,
+                        color: '#585E6C',
+                        '&:hover': {
+                          bgcolor: 'rgba(88,94,108,0.08)',
+                        }
+                      }}
+                    >
+                      <StarIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip title="Start video call">
+                  <IconButton
+                    onClick={handleVideoCall}
+                    sx={{
+                      color: '#585E6C',
+                      '&:hover': {
+                        bgcolor: 'rgba(88,94,108,0.08)',
+                      }
+                    }}
+                  >
+                    <VideoCallIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
-
             <Box sx={{
               flexGrow: 1,
               overflowY: 'auto',
@@ -368,34 +451,72 @@ const Inbox: React.FC = () => {
                 borderRadius: '3px'
               }
             }}>
-              {messages.map((msg) => (
-                <Box
-                  key={msg._id}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: msg.sender._id === user?._id ? 'flex-end' : 'flex-start',
-                    mb: 2
-                  }}
-                >
+              {messages.map((msg) => {
+                const isSender = msg.sender._id === user?._id;
+                return (
                   <Box
+                    key={msg._id}
                     sx={{
-                      maxWidth: '70%',
-                      bgcolor: msg.sender._id === user?._id ? '#585E6C' : '#F8F9FB',
-                      color: msg.sender._id === user?._id ? 'white' : '#585E6C',
-                      borderRadius: '16px',
-                      p: 2,
-                      boxShadow: '0 2px 8px rgba(88,94,108,0.1)'
+                      display: 'flex',
+                      flexDirection: isSender ? 'row-reverse' : 'row',
+                      alignItems: 'flex-end',
+                      gap: 1,
+                      mb: 2
                     }}
                   >
-                    <Typography variant="body1">
-                      {renderMessageContent(msg.content)}
-                    </Typography>
-                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                      {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
-                    </Typography>
+                    <Avatar
+                      src={msg.sender?.avatar}
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: '#585E6C',
+                        display: { xs: 'none', sm: 'flex' }
+                      }}
+                    >
+                      {msg.sender?.name[0]}
+                    </Avatar>
+                    <Box sx={{ maxWidth: '70%' }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          mb: 0.5, 
+                          display: 'block',
+                          color: '#585E6C',
+                          textAlign: isSender ? 'right' : 'left'
+                        }}
+                      >
+                        {isSender ? 'You' : msg.sender.name}
+                      </Typography>
+                      <Box
+                        sx={{
+                          bgcolor: isSender ? '#585E6C' : 'white',
+                          color: isSender ? 'white' : '#585E6C',
+                          borderRadius: '16px',
+                          p: 2,
+                          boxShadow: '0 2px 8px rgba(88,94,108,0.1)',
+                          borderTopRightRadius: isSender ? 0 : '16px',
+                          borderTopLeftRadius: isSender ? '16px' : 0
+                        }}
+                      >
+                        <Typography variant="body1">
+                          {renderMessageContent(msg.content)}
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            opacity: 0.8,
+                            display: 'block',
+                            textAlign: 'right',
+                            mt: 0.5
+                          }}
+                        >
+                          {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
+                        </Typography>
+                      </Box>
+                    </Box>
                   </Box>
-                </Box>
-              ))}
+                );
+              })}
               <div ref={messagesEndRef} />
             </Box>
 
@@ -462,6 +583,35 @@ const Inbox: React.FC = () => {
           </Box>
         )}
       </Paper>
+      <Dialog
+        open={ratingDialogOpen}
+        onClose={() => setRatingDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            p: 3
+          }
+        }}
+      >
+        <DialogTitle sx={{ textAlign: 'center' }}>
+          Rate Your Mentor
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', pt: 2 }}>
+          <Typography variant="body1" gutterBottom>
+            How would you rate your experience with {selectedChat?.otherUser?.name}?
+          </Typography>
+          <Rating
+            size="large"
+            onChange={(_, value) => value && handleRateMentor(value)}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRatingDialogOpen(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

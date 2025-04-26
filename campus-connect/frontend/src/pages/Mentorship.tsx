@@ -43,6 +43,8 @@ const Mentorship: React.FC = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const [mentorToRate, setMentorToRate] = useState<Mentor | null>(null);
 
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
@@ -62,8 +64,11 @@ const Mentorship: React.FC = () => {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      console.log('Fetched mentors:', response.data); // Debug log
-      setMentors(response.data);
+      // Sort mentors by rating
+      const sortedMentors = response.data.sort((a: Mentor, b: Mentor) => 
+        (b.mentorRating || 0) - (a.mentorRating || 0)
+      );
+      setMentors(sortedMentors);
     } catch (error) {
       console.error('Error fetching mentors:', error);
     }
@@ -159,6 +164,38 @@ const Mentorship: React.FC = () => {
     } catch (error: any) {
       console.error('Error handling request:', error);
       const errorMessage = error.response?.data?.message || 'Failed to process request';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
+  };
+
+  const handleRateMentor = async (mentorId: string, rating: number) => {
+    try {
+      const response = await axios.post(
+        `http://localhost:5002/api/mentorship/rate/${mentorId}`,
+        { 
+          rating,
+          comment: 'Rating submitted from mentorship platform' // Add default comment
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      
+      // Update local state with new rating
+      setMentors(prev => prev.map(mentor => 
+        mentor._id === mentorId 
+          ? { 
+              ...mentor, 
+              mentorRating: response.data.newRating,
+              totalRatings: mentor.totalRatings + 1
+            }
+          : mentor
+      ));
+
+      enqueueSnackbar('Rating submitted successfully', { variant: 'success' });
+    } catch (error: any) {
+      console.error('Error rating mentor:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to submit rating';
       enqueueSnackbar(errorMessage, { variant: 'error' });
     }
   };
@@ -392,16 +429,36 @@ const Mentorship: React.FC = () => {
                     </Box>
                   )}
 
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <Rating 
-                      value={mentor.mentorRating} 
-                      readOnly 
-                      precision={0.5}
-                      size="small"
-                    />
-                    <Typography variant="body2" sx={{ ml: 1 }}>
-                      ({mentor.totalRatings} ratings)
-                    </Typography>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                    <Box display="flex" alignItems="center">
+                      <Rating 
+                        value={mentor.mentorRating || 0} 
+                        readOnly 
+                        precision={0.5}
+                        size="small"
+                      />
+                      <Typography variant="body2" sx={{ ml: 1, color: '#596273' }}>
+                        {mentor.mentorRating?.toFixed(1) || 'No ratings'} ({mentor.totalRatings || 0})
+                      </Typography>
+                    </Box>
+                    {user?.role === 'student' && (
+                      <Button
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMentorToRate(mentor);
+                          setRatingDialogOpen(true);
+                        }}
+                        sx={{
+                          color: '#585E6C',
+                          '&:hover': {
+                            bgcolor: 'rgba(88,94,108,0.08)',
+                          }
+                        }}
+                      >
+                        Rate
+                      </Button>
+                    )}
                   </Box>
 
                   {user?.role === 'student' && (
@@ -521,6 +578,44 @@ const Mentorship: React.FC = () => {
         onAccept={(requestId) => handleRequestAction(requestId, 'accepted')}
         onReject={(requestId) => handleRequestAction(requestId, 'rejected')}
       />
+
+      <Dialog
+        open={ratingDialogOpen}
+        onClose={() => {
+          setRatingDialogOpen(false);
+          setMentorToRate(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            p: 3
+          }
+        }}
+      >
+        <DialogTitle sx={{ textAlign: 'center' }}>
+          Rate {mentorToRate?.name}
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', pt: 2 }}>
+          <Typography variant="body1" gutterBottom>
+            How would you rate your experience with this mentor?
+          </Typography>
+          <Rating
+            size="large"
+            onChange={(_, value) => value && handleRateMentor(mentorToRate?._id || '', value)}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setRatingDialogOpen(false);
+            setMentorToRate(null);
+          }}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

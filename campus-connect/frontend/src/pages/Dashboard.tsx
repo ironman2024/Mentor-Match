@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Grid,
@@ -45,13 +45,15 @@ import {
   Timeline as TimelineIcon,
   InsertPhoto as PhotoIcon,
   VideoLibrary as VideoIcon,
-  Article as ArticleIcon
+  Article as ArticleIcon,
+  PostAdd as PostAddIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import { getChatResponse } from '../services/aiChat';
 import ReactMarkdown from 'react-markdown'; // Add this import
+import { formatDistanceToNow } from 'date-fns';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -62,6 +64,16 @@ const Dashboard: React.FC = () => {
   const [openAiChat, setOpenAiChat] = useState(false);
   const [messages, setMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   const [currentMessage, setCurrentMessage] = useState('');
+  const [openPostDialog, setOpenPostDialog] = useState(false);
+  const [postForm, setPostForm] = useState({
+    content: '',
+    image: null as File | null
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [openCommentsDialog, setOpenCommentsDialog] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [comment, setComment] = useState('');
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchPosts();
@@ -82,8 +94,39 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleCreatePost = () => {
-    // TODO: Implement post creation
+  const handleCreatePost = async () => {
+    try {
+      const formData = new FormData();
+      formData.append('content', postForm.content);
+      if (postForm.image) {
+        formData.append('image', postForm.image);
+      }
+
+      const response = await axios.post('http://localhost:5002/api/posts', formData, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      // Update posts list
+      setPosts(prevPosts => [response.data, ...prevPosts]);
+      
+      // Reset form and close dialog
+      setPostForm({ content: '', image: null });
+      setOpenPostDialog(false);
+    } catch (error) {
+      console.error('Error creating post:', error);
+    }
+  };
+
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setPostForm(prev => ({
+        ...prev,
+        image: event.target.files![0]
+      }));
+    }
   };
 
   const handleAiChat = async (message: string) => {
@@ -111,6 +154,51 @@ const Dashboard: React.FC = () => {
     if (currentMessage.trim()) {
       handleAiChat(currentMessage);
       setCurrentMessage('');
+    }
+  };
+
+  const handleLike = async (postId: string) => {
+    try {
+      if (likedPosts.has(postId)) {
+        await axios.delete(`http://localhost:5002/api/posts/${postId}/like`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setLikedPosts(prev => {
+          const next = new Set(prev);
+          next.delete(postId);
+          return next;
+        });
+      } else {
+        await axios.post(`http://localhost:5002/api/posts/${postId}/like`, {}, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setLikedPosts(prev => new Set(prev).add(postId));
+      }
+      // Refresh posts to get updated like count
+      fetchPosts();
+    } catch (error) {
+      console.error('Error handling like:', error);
+    }
+  };
+
+  const handleComment = async (postId: string) => {
+    try {
+      await axios.post(`http://localhost:5002/api/posts/${postId}/comment`, 
+        { content: comment },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      setComment('');
+      fetchPosts();
+    } catch (error) {
+      console.error('Error posting comment:', error);
     }
   };
 
@@ -433,7 +521,7 @@ const Dashboard: React.FC = () => {
               <Button
                 fullWidth
                 variant="outlined"
-                onClick={handleCreatePost}
+                onClick={() => setOpenPostDialog(true)}
                 sx={{
                   borderRadius: 5,
                   justifyContent: 'flex-start',
@@ -449,12 +537,62 @@ const Dashboard: React.FC = () => {
                 Start a post
               </Button>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-              <Button startIcon={<PhotoIcon color="primary" />} sx={{ flex: 1 }}>Photo</Button>
-              <Button startIcon={<VideoIcon color="success" />} sx={{ flex: 1 }}>Video</Button>
-              <Button startIcon={<ArticleIcon color="warning" />} sx={{ flex: 1 }}>Article</Button>
-            </Box>
           </Paper>
+
+          {/* Add Post Creation Dialog */}
+          <Dialog
+            open={openPostDialog}
+            onClose={() => setOpenPostDialog(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle sx={{ pb: 1 }}>Create Post</DialogTitle>
+            <DialogContent>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                placeholder="What do you want to share?"
+                value={postForm.content}
+                onChange={(e) => setPostForm(prev => ({ ...prev, content: e.target.value }))}
+                sx={{ mt: 2 }}
+              />
+              {postForm.image && (
+                <Box mt={2}>
+                  <Typography variant="caption">
+                    Selected image: {postForm.image.name}
+                  </Typography>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 3 }}>
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                ref={fileInputRef}
+                onChange={handleImageSelect}
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                startIcon={<PhotoIcon />}
+              >
+                Add Image
+              </Button>
+              <Box sx={{ flex: 1 }} />
+              <Button onClick={() => setOpenPostDialog(false)}>
+                Cancel  
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleCreatePost}
+                disabled={!postForm.content.trim()}
+                startIcon={<PostAddIcon />}
+              >
+                Post
+              </Button>
+            </DialogActions>
+          </Dialog>
 
           {/* Posts Feed */}
           <Box sx={{ mb: 3 }}>
@@ -519,13 +657,21 @@ const Dashboard: React.FC = () => {
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 1 }}>
                     <Button
-                      startIcon={<ThumbUpIcon />}
-                      sx={{ flex: 1, color: 'text.secondary' }}
+                      startIcon={<ThumbUpIcon color={likedPosts.has(post._id) ? "primary" : "inherit"} />}
+                      onClick={() => handleLike(post._id)}
+                      sx={{ 
+                        flex: 1, 
+                        color: likedPosts.has(post._id) ? 'primary.main' : 'text.secondary'
+                      }}
                     >
                       Like • {post.likes?.length || 0}
                     </Button>
                     <Button
                       startIcon={<CommentIcon />}
+                      onClick={() => {
+                        setSelectedPost(post);
+                        setOpenCommentsDialog(true);
+                      }}
                       sx={{ flex: 1, color: 'text.secondary' }}
                     >
                       Comment • {post.comments?.length || 0}
@@ -537,6 +683,66 @@ const Dashboard: React.FC = () => {
                       Share
                     </Button>
                   </Box>
+
+                  {/* Add Comments Dialog */}
+                  <Dialog
+                    open={openCommentsDialog}
+                    onClose={() => {
+                      setOpenCommentsDialog(false);
+                      setSelectedPost(null);
+                      setComment('');
+                    }}
+                    maxWidth="sm"
+                    fullWidth
+                  >
+                    <DialogTitle>Comments</DialogTitle>
+                    <DialogContent dividers>
+                      {selectedPost?.comments?.map((comment: any) => (
+                        <Box key={comment._id} sx={{ mb: 2, py: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                            <Avatar
+                              src={comment.author?.avatar}
+                              sx={{ width: 32, height: 32, mr: 1 }}
+                            >
+                              {comment.author?.name?.[0]}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="subtitle2">
+                                {comment.author?.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Typography variant="body2" sx={{ pl: 5 }}>
+                            {comment.content}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </DialogContent>
+                    <DialogActions sx={{ p: 2, display: 'flex', gap: 1 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="Write a comment..."
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey && comment.trim()) {
+                            handleComment(selectedPost._id);
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="contained"
+                        disabled={!comment.trim()}
+                        onClick={() => handleComment(selectedPost._id)}
+                      >
+                        Post
+                      </Button>
+                    </DialogActions>
+                  </Dialog>
                 </CardContent>
               </Paper>
             ))}

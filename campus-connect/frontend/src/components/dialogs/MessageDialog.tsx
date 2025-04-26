@@ -233,6 +233,3 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
 };
 
 export default MessageDialog;
-
-
-

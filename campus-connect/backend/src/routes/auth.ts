@@ -11,55 +11,103 @@ interface AuthRequest extends Request {
 
 const router = express.Router();
 
-router.post('/login', async (req, res) => {
+router.post('/login', async (req: Request, res: Response) => {
   try {
-    console.log('Login request received:', req.body); // Debugging log
     const { email, password } = req.body;
+
+    // Input validation
+    if (!email || !password) {
+      return res.status(400).json({ 
+        message: 'Email and password are required',
+        details: { email: !email, password: !password }
+      });
+    }
+
+    // Find user with detailed logging
+    console.log('Attempting to find user with email:', email);
     const user = await User.findOne({ email });
     
-    if (!user || !(await user.comparePassword(password))) {
+    if (!user) {
+      console.log('User not found with email:', email);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Check password with detailed logging
+    console.log('Checking password for user:', email);
+    const isValidPassword = await user.comparePassword(password);
+    
+    if (!isValidPassword) {
+      console.log('Invalid password for user:', email);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Generate token with proper secret
+    const jwtSecret = process.env.JWT_SECRET || 'default_jwt_secret_for_development';
+    console.log('Generating JWT token with secret:', jwtSecret.substring(0, 3) + '...');
+    
     const token = jwt.sign(
       { userId: user._id },
-      process.env.JWT_SECRET || 'default_secret',
+      jwtSecret,
       { expiresIn: '24h' }
     );
 
+    console.log('Login successful for user:', email);
     res.json({
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         email: user.email,
         name: user.name,
         role: user.role,
-        skills: user.skills,
-        reputation: 0,
-        badges: []
+        avatar: user.avatar,
+        skills: user.skills || [],
+        reputation: user.reputation || 0,
+        badges: user.badges || []
       }
     });
-  } catch (error) {
-    console.error('Login error:', error); // Debugging log
-    res.status(500).json({ message: 'Server error' });
+
+  } catch (error: any) {
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      message: 'Login failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', async (req: Request, res: Response) => {
   try {
-    console.log('Registration request received:', req.body); // Debugging log
+    console.log('Registration request received:', {
+      ...req.body,
+      password: '[HIDDEN]'
+    });
+    
     const { email, password, name, role } = req.body;
 
-    // Check if user already exists
+    // Input validation
+    if (!email || !password || !name || !role) {
+      return res.status(400).json({ 
+        message: 'All fields are required',
+        details: {
+          email: !email,
+          password: !password,
+          name: !name,
+          role: !role
+        }
+      });
+    }
+
+    // Check for existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log('Registration failed: User already exists:', email);
       return res.status(400).json({ message: 'User already exists' });
     }
 
     // Create new user
     const user = new User({
       email,
-      password, // Password will be hashed via mongoose pre-save hook
+      password,
       name,
       role,
       skills: [],
@@ -68,11 +116,12 @@ router.post('/register', async (req, res) => {
     });
 
     await user.save();
+    console.log('New user created successfully:', email);
 
-    // Create JWT token
+    const jwtSecret = process.env.JWT_SECRET || 'default_jwt_secret_for_development';
     const token = jwt.sign(
       { userId: user._id },
-      process.env.JWT_SECRET || 'default_secret',
+      jwtSecret,
       { expiresIn: '24h' }
     );
 
@@ -80,19 +129,18 @@ router.post('/register', async (req, res) => {
       message: 'User registered successfully',
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         email: user.email,
         name: user.name,
         role: user.role
       }
     });
 
-  } catch (error) {
-    console.error('Registration error:', error); // Debugging log
+  } catch (error: any) {
     console.error('Registration error:', error);
     res.status(500).json({ 
-      message: 'Registration failed', 
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      message: 'Registration failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

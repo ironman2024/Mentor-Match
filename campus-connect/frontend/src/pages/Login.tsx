@@ -13,11 +13,19 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    
     try {
+      if (!email || !password) {
+        setError('Please enter both email and password');
+        return;
+      }
+
       await login(email, password);
       navigate('/dashboard');
-    } catch (err) {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err.message || 'Failed to login');
     }
   };
 

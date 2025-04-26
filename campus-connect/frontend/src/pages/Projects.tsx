@@ -24,14 +24,23 @@ import {
   CircularProgress,
   ThemeProvider,
   createTheme,
-  alpha
+  alpha,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Badge as MuiBadge,
+  Tooltip,
+  Avatar,
+  ListItemAvatar,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
   Person as PersonIcon,
   Code as CodeIcon,
-  Folder as FolderIcon
+  Folder as FolderIcon,
+  People as PeopleIcon,
+  NotificationsActive as NotificationsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import socket from '../config/socket';
@@ -175,6 +184,12 @@ const Projects: React.FC = () => {
   const [skillInput, setSkillInput] = useState('');
   const [techStackInput, setTechStackInput] = useState('');
   const [prerequisiteInput, setPrerequisiteInput] = useState('');
+  const [applications, setApplications] = useState<{[key: string]: any[]}>({});
+  const [openApply, setOpenApply] = useState(false);
+  const [selectedProjectForApply, setSelectedProjectForApply] = useState<any>(null);
+  const [applicationMessage, setApplicationMessage] = useState('');
+  const [applicationsAnchorEl, setApplicationsAnchorEl] = useState<null | HTMLElement>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   useEffect(() => {
     fetchProjects();
@@ -259,6 +274,19 @@ const Projects: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    // Listen for new applications
+    socket.on('new_application', (data: any) => {
+      if (data.projectOwnerId === user?._id) {
+        setNotifications(prev => [...prev, data]);
+      }
+    });
+
+    return () => {
+      socket.off('new_application');
+    };
+  }, [user]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -321,6 +349,180 @@ const Projects: React.FC = () => {
       setPrerequisiteInput('');
     }
   };
+
+  const handleApplyClick = (project: any) => {
+    setSelectedProjectForApply(project);
+    setOpenApply(true);
+  };
+
+  const handleSubmitApplication = async () => {
+    try {
+      const response = await axios.post(
+        'http://localhost:5002/api/projects/apply',
+        {
+          projectId: selectedProjectForApply._id,
+          message: applicationMessage
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      
+      enqueueSnackbar('Application submitted successfully', { variant: 'success' });
+      setOpenApply(false);
+      setApplicationMessage('');
+      setSelectedProjectForApply(null);
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      enqueueSnackbar('Failed to submit application', { variant: 'error' });
+    }
+  };
+
+  const fetchApplications = async (projectId: string) => {
+    try {
+      const response = await axios.get(
+        `http://localhost:5002/api/projects/${projectId}/applications`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      setApplications(prev => ({
+        ...prev,
+        [projectId]: response.data
+      }));
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+    }
+  };
+
+  const renderProjectCard = (project: any) => (
+    <Card sx={{ height: '100%' }}>
+      <CardContent sx={{ p: 3 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start',
+          mb: 1 
+        }}>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+            {project.title}
+          </Typography>
+          <Chip
+            label={project.status}
+            color={getStatusColor(project.status) as any}
+            size="small"
+            sx={{ 
+              fontWeight: 500,
+              textTransform: 'capitalize'
+            }}
+          />
+        </Box>
+        
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          mb: 2,
+          color: 'text.secondary'
+        }}>
+          <Chip 
+            label={project.projectType} 
+            variant="outlined"
+            size="small"
+            sx={{ mr: 1, textTransform: 'capitalize' }}
+          />
+          {project.technicalDetails?.complexity && (
+            <Chip 
+              label={project.technicalDetails.complexity} 
+              size="small"
+              sx={{ 
+                backgroundColor: alpha(getComplexityColor(project.technicalDetails.complexity), 0.1),
+                color: getComplexityColor(project.technicalDetails.complexity),
+                fontWeight: 500,
+                textTransform: 'capitalize'
+              }}
+            />
+          )}
+        </Box>
+        
+        <Typography color="text.secondary" sx={{ mb: 2, fontSize: '0.95rem', height: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {project.description}
+        </Typography>
+        
+        <Typography variant="subtitle2" sx={{ mb: 1, color: 'primary.main', fontWeight: 600 }}>
+          Skills
+        </Typography>
+        <Box mb={2} sx={{ minHeight: '60px' }}>
+          {project.skills?.map((skill) => (
+            <Chip
+              key={skill}
+              label={skill}
+              size="small"
+              sx={{ 
+                mr: 0.5, 
+                mb: 0.5,
+                backgroundColor: alpha('#2D3E50', 0.08),
+                color: 'text.primary'
+              }}
+            />
+          ))}
+          {(!project.skills || project.skills.length === 0) && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              No skills specified
+            </Typography>
+          )}
+        </Box>
+        
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            mt: 2,
+            pt: 2,
+            borderTop: '1px solid',
+            borderColor: alpha('#000', 0.08)
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box display="flex" alignItems="center">
+              <PersonIcon sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="body2">
+                {project.team?.length || 0} member{project.team?.length !== 1 ? 's' : ''}
+              </Typography>
+            </Box>
+            {project.owner === user?._id && (
+              <Tooltip title="View Applications">
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => {
+                    setApplicationsAnchorEl(e.currentTarget);
+                    fetchApplications(project._id);
+                  }}
+                >
+                  <MuiBadge 
+                    badgeContent={notifications.filter(n => n.projectId === project._id).length} 
+                    color="secondary"
+                  >
+                    <PeopleIcon />
+                  </MuiBadge>
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
+          {project.owner !== user?._id && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleApplyClick(project)}
+              startIcon={<PersonIcon />}
+            >
+              Apply
+            </Button>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <ThemeProvider theme={theme}>
@@ -426,107 +628,7 @@ const Projects: React.FC = () => {
               <Grid container spacing={3}>
                 {filteredProjects.map((project) => (
                   <Grid item xs={12} md={6} lg={4} key={project.id || project._id}>
-                    <Card sx={{ height: '100%' }}>
-                      <CardContent sx={{ p: 3 }}>
-                        <Box sx={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'flex-start',
-                          mb: 1 
-                        }}>
-                          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                            {project.title}
-                          </Typography>
-                          <Chip
-                            label={project.status}
-                            color={getStatusColor(project.status) as any}
-                            size="small"
-                            sx={{ 
-                              fontWeight: 500,
-                              textTransform: 'capitalize'
-                            }}
-                          />
-                        </Box>
-                        
-                        <Box sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          mb: 2,
-                          color: 'text.secondary'
-                        }}>
-                          <Chip 
-                            label={project.projectType} 
-                            variant="outlined"
-                            size="small"
-                            sx={{ mr: 1, textTransform: 'capitalize' }}
-                          />
-                          {project.technicalDetails?.complexity && (
-                            <Chip 
-                              label={project.technicalDetails.complexity} 
-                              size="small"
-                              sx={{ 
-                                backgroundColor: alpha(getComplexityColor(project.technicalDetails.complexity), 0.1),
-                                color: getComplexityColor(project.technicalDetails.complexity),
-                                fontWeight: 500,
-                                textTransform: 'capitalize'
-                              }}
-                            />
-                          )}
-                        </Box>
-                        
-                        <Typography color="text.secondary" sx={{ mb: 2, fontSize: '0.95rem', height: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {project.description}
-                        </Typography>
-                        
-                        <Typography variant="subtitle2" sx={{ mb: 1, color: 'primary.main', fontWeight: 600 }}>
-                          Skills
-                        </Typography>
-                        <Box mb={2} sx={{ minHeight: '60px' }}>
-                          {project.skills?.map((skill) => (
-                            <Chip
-                              key={skill}
-                              label={skill}
-                              size="small"
-                              sx={{ 
-                                mr: 0.5, 
-                                mb: 0.5,
-                                backgroundColor: alpha('#2D3E50', 0.08),
-                                color: 'text.primary'
-                              }}
-                            />
-                          ))}
-                          {(!project.skills || project.skills.length === 0) && (
-                            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                              No skills specified
-                            </Typography>
-                          )}
-                        </Box>
-                        
-                        <Box 
-                          sx={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center',
-                            mt: 2,
-                            pt: 2,
-                            borderTop: '1px solid',
-                            borderColor: alpha('#000', 0.08)
-                          }}
-                        >
-                          <Box display="flex" alignItems="center">
-                            <PersonIcon sx={{ mr: 1, color: 'primary.main' }} />
-                            <Typography variant="body2">
-                              {project.team?.length || 0} member{project.team?.length !== 1 ? 's' : ''}
-                            </Typography>
-                          </Box>
-                          {project.technicalDetails?.estimatedDuration && (
-                            <Typography variant="body2" color="text.secondary">
-                              {project.technicalDetails.estimatedDuration} week{project.technicalDetails.estimatedDuration !== 1 ? 's' : ''}
-                            </Typography>
-                          )}
-                        </Box>
-                      </CardContent>
-                    </Card>
+                    {renderProjectCard(project)}
                   </Grid>
                 ))}
               </Grid>
@@ -803,6 +905,69 @@ const Projects: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Add Application Dialog */}
+        <Dialog 
+          open={openApply} 
+          onClose={() => setOpenApply(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Apply for Project</DialogTitle>
+          <DialogContent>
+            <Typography variant="subtitle1" gutterBottom>
+              {selectedProjectForApply?.title}
+            </Typography>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              label="Why do you want to join this project?"
+              value={applicationMessage}
+              onChange={(e) => setApplicationMessage(e.target.value)}
+              sx={{ mt: 2 }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenApply(false)}>Cancel</Button>
+            <Button 
+              variant="contained" 
+              color="primary"
+              onClick={handleSubmitApplication}
+              disabled={!applicationMessage.trim()}
+            >
+              Submit Application
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Applications Menu */}
+        <Menu
+          anchorEl={applicationsAnchorEl}
+          open={Boolean(applicationsAnchorEl)}
+          onClose={() => setApplicationsAnchorEl(null)}
+          PaperProps={{
+            sx: { width: 320, maxHeight: 400 }
+          }}
+        >
+          {applications[selectedProjectForApply?._id]?.map((application: any) => (
+            <MenuItem key={application._id}>
+              <ListItemAvatar>
+                <Avatar src={application.applicant.avatar}>
+                  {application.applicant.name[0]}
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText
+                primary={application.applicant.name}
+                secondary={application.message}
+              />
+            </MenuItem>
+          )) || (
+            <MenuItem disabled>
+              <ListItemText primary="No applications yet" />
+            </MenuItem>
+          )}
+        </Menu>
       </Box>
     </ThemeProvider>
   );
