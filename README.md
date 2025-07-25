@@ -112,10 +112,3 @@ mentor-match/
 
 This project is licensed under the MIT License.
 
----
-
-Would you like me to:
-
-1. Make it **more detailed for a GitHub repo (badges, screenshots, API endpoints)**?
-2. Or make a **simplified student project version for submission**?
-3. Or both?
