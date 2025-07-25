@@ -1,8 +1,3 @@
-Here’s a professional **README.md** template for your **Mentor Match** project.
-You can copy this into a `README.md` file:
-
----
-
 # Mentor Match
 
 Mentor Match is a platform designed to connect mentors and mentees based on skills, goals, and expertise.
