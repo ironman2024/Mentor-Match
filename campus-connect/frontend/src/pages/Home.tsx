@@ -217,7 +217,7 @@ const Homepage = () => {
         <Box sx={{ flex: 1, position: 'relative', minHeight: { xs: '300px', md: '600px' } }}>
           <Box
             component="img"
-            src="./src/images/Professor-pana.svg"
+            src="/Professor-pana.svg"
             alt="Mentor and Student Illustration"
             sx={{
               width: '100%',
@@ -243,32 +243,32 @@ const Homepage = () => {
             {
               title: 'Smart Matching',
               description: 'Our AI-powered system connects you with the most compatible mentors based on your skills and goals.',
-              image: './src/images/Collaboration-rafiki.svg'
+              image: '/Collaboration-rafiki.svg'
             },
             {
               title: 'Project Collaboration',
               description: 'Form compatible project teams and work together on innovative engineering projects.',
-              image: './src/images/Connecting teams-cuate.svg'
+              image: '/Connecting teams-cuate.svg'
             },
             {
               title: 'Skill Showcase',
               description: 'Build and showcase your portfolio of skills, projects, and achievements.',
-              image: '/images/Resume-bro.svg'
+              image: '/Resume-bro.svg'
             },
             {
               title: 'Smart Dashboard',
               description: 'Track your progress, manage certifications, and view insights all in one place.',
-              image: '/images/Control-Panel-rafiki.svg'
+              image: '/Control Panel-rafiki.svg'
             },
             {
               title: 'Real-time Communication',
               description: 'Connect seamlessly with mentors and team members through integrated chat and video calls.',
-              image: './src/images/Live collaboration-bro.svg'
+              image: '/Live collaboration-bro.svg'
             },
             {
               title: 'Gamified Learning',
               description: 'Earn rewards, badges, and recognition as you progress in your learning journey.',
-              image: './src/images/Game analytics-rafiki.svg'
+              image: '/Game analytics-rafiki.svg'
             }
           ].map((feature, i) => (
             <Grid item xs={12} sm={6} md={4} key={i}>
@@ -337,21 +337,21 @@ const Homepage = () => {
               title: 'Login/Register', 
               description: 'Create your account or login to get started',
               icon: <LoginIcon sx={{ fontSize: 40, color: '#585E6C' }} />,
-              image: '/images/login-illustration.svg'
+              image: '/login-illustration.svg'
             },
             { 
               step: '2', 
               title: 'Select Mentor', 
               description: 'Browse and choose from our verified mentors',
               icon: <PersonSearchIcon sx={{ fontSize: 40, color: '#585E6C' }} />,
-              image: '/images/select-mentor.svg'
+              image: '/select-mentor.svg'
             },
             { 
               step: '3', 
               title: 'Start Chat', 
               description: 'Connect and schedule sessions with your mentor',
               icon: <ChatIcon sx={{ fontSize: 40, color: '#585E6C' }} />,
-              image: '/images/start-chat.svg'
+              image: '/start-chat.svg'
             },
           ].map(({ step, title, description, icon, image }) => (
             <Grid item xs={12} sm={4} key={step}>
@@ -478,10 +478,10 @@ const Homepage = () => {
               }}
             >
               {[
-                '/images/about-1.jpg',
-                '/images/about-2.jpg',
-                '/images/about-3.jpg',
-                '/images/about-4.jpg'
+                '/about-1.jpg',
+                '/about-2.jpg',
+                '/about-3.jpg',
+                '/about-4.jpg'
               ].map((img, index) => (
                 <Box
                   key={index}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#f5f5f5"/>
+  <circle cx="150" cy="120" r="30" fill="#1976d2"/>
+  <circle cx="250" cy="120" r="30" fill="#1976d2"/>
+  <path d="M120 150 L180 150 L200 180 L220 150 L280 150" stroke="#1976d2" stroke-width="3" fill="none"/>
+  <text x="200" y="220" text-anchor="middle" font-family="Arial" font-size="16" fill="#666">Collaboration</text>
+</svg>

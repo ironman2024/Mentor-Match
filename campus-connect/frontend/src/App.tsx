@@ -18,7 +18,7 @@ const App: React.FC = () => {
         <AuthProvider>
           <AIProvider>
             <SocketProvider>
-              <BrowserRouter>
+              <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <ErrorBoundary>
                   <CssBaseline />
                   <Suspense fallback={

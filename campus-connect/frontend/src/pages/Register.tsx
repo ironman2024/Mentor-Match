@@ -31,15 +31,11 @@ const Register: React.FC = () => {
         });
       }
     } catch (err) {
+      console.error('Registration error details:', err);
       if (axios.isAxiosError(err)) {
-        console.error('Registration error details:', err.response?.data); // Debugging log
-        const errorMessage = err.response?.data?.message || 'Registration failed';
-        console.error('Registration error details:', err.response?.data); // Add detailed error logging
-        setError(errorMessage);
+        setError(err.response?.data?.message || 'Failed to register. Please try again.');
       } else {
-        console.error('Unexpected error:', err); // Debugging log
-        setError('An unexpected error occurred');
-        console.error('Registration error:', err);
+        setError('An unexpected error occurred. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -47,6 +43,14 @@ const Register: React.FC = () => {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name as string]: value
+    }));
+  };
+
+  const handleSelectChange = (e: any) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -98,7 +102,7 @@ const Register: React.FC = () => {
               <Select
                 name="role"
                 value={formData.role}
-                onChange={handleChange}
+                onChange={handleSelectChange}
                 required
                 sx={{ borderRadius: '12px' }}
               >

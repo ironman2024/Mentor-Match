@@ -23,7 +23,7 @@ interface AIChatBoxProps {
     timestamp?: Date;
   }>;
   isLoading: boolean;
-  error?: string;
+  error?: string | null;
 }
 
 const AIChatBox: React.FC<AIChatBoxProps> = ({ 

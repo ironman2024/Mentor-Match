@@ -13,8 +13,7 @@ const connectDB = async () => {
 
     const options: mongoose.ConnectOptions = {
       serverSelectionTimeoutMS: 10000, // Increased timeout
-      socketTimeoutMS: 45000,
-      retryWrites: true
+      socketTimeoutMS: 45000
     };
 
     await mongoose.connect(MONGODB_URI, options);
