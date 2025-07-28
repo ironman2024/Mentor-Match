@@ -214,7 +214,11 @@ const Events: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get('http://localhost:5002/api/events');
+      const response = await axios.get('http://localhost:5002/api/events', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       setEvents(response.data);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -266,13 +270,45 @@ const Events: React.FC = () => {
 
   const handleRegistrationSubmit = async (registrationData: any) => {
     try {
-      await axios.post(
+      const response = await axios.post(
         `http://localhost:5002/api/events/${registrationDialog.eventId}/register`,
-        registrationData
+        registrationData,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
       );
+      
+      // Create registration object with proper structure
+      const newRegistration = {
+        _id: response.data._id || Date.now().toString(),
+        teamName: registrationData.teamName || 'Individual',
+        teamLeader: registrationData.teamLeader || { name: user?.name, email: user?.email },
+        user: { name: user?.name, email: user?.email },
+        teamMembers: registrationData.teamMembers || [],
+        createdAt: new Date().toISOString(),
+        ...response.data
+      };
+      
+      // Update local state immediately
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event._id === registrationDialog.eventId 
+            ? { 
+                ...event, 
+                registrations: [...(event.registrations || []), newRegistration],
+                registered: (event.registrations?.length || 0) + 1
+              }
+            : event
+        )
+      );
+      
       showNotification('Successfully registered for the event!', 'success');
       setRegistrationDialog({ open: false, eventId: '', event: null });
-      fetchEvents(); // Refresh events list
+      
+      // Refresh from server after a short delay
+      setTimeout(() => fetchEvents(), 1000);
     } catch (error) {
       console.error('Registration error:', error);
       showNotification('Failed to register. Please try again.', 'error');
@@ -281,35 +317,59 @@ const Events: React.FC = () => {
 
   const handleViewRegistrations = async (eventId: string, eventTitle: string) => {
     try {
+      // First refresh events to get latest data
+      await fetchEvents();
+      
+      // Get registrations from the registrations endpoint
       const response = await axios.get(`http://localhost:5002/api/events/${eventId}/registrations`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
+      
       setRegistrationsDialog({
         open: true,
         eventId,
         eventTitle,
-        registrations: response.data
+        registrations: response.data || []
       });
     } catch (error) {
       console.error('Error fetching registrations:', error);
-      showNotification('Failed to load registrations', 'error');
+      // If registrations endpoint fails, get from current events state
+      const currentEvent = events.find(e => e._id === eventId);
+      setRegistrationsDialog({
+        open: true,
+        eventId,
+        eventTitle,
+        registrations: currentEvent?.registrations || []
+      });
+      
+      if (!currentEvent?.registrations?.length) {
+        showNotification('No registrations found or failed to load', 'error');
+      }
     }
   };
 
   const downloadCSV = () => {
     const headers = ['Team Name', 'Team Leader', 'Leader Email', 'Team Members', 'Registration Date'];
     const csvData = registrationsDialog.registrations.map(reg => [
-      reg.teamName || 'Individual',
-      reg.teamLeader?.name || reg.user?.name,
-      reg.teamLeader?.email || reg.user?.email,
-      reg.teamMembers?.map((m: any) => `${m.name} (${m.email})`).join('; ') || 'N/A',
-      new Date(reg.createdAt).toLocaleDateString()
+      reg.teamName || reg.team?.name || 'Individual',
+      reg.teamLeader?.name || reg.leader?.name || reg.user?.name || reg.studentName || 'N/A',
+      reg.teamLeader?.email || reg.leader?.email || reg.user?.email || reg.studentEmail || 'N/A',
+      reg.teamMembers?.length > 0 ? 
+        reg.teamMembers.map((m: any) => `${m.name || m.studentName} (${m.email || m.studentEmail})`).join('; ') :
+        reg.members?.length > 0 ?
+        reg.members.map((m: any) => `${m.name || m.studentName} (${m.email || m.studentEmail})`).join('; ') :
+        'N/A',
+      reg.createdAt ? 
+        new Date(reg.createdAt).toLocaleDateString() : 
+        reg.registrationDate ? 
+        new Date(reg.registrationDate).toLocaleDateString() : 
+        new Date().toLocaleDateString()
     ]);
     
     const csvContent = [headers, ...csvData]
-      .map(row => row.map(field => `"${field}"`).join(','))
+      .map(row => row.map(field => `"${field || 'N/A'}"`).join(','))
       .join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -445,7 +505,7 @@ const Events: React.FC = () => {
         <Grid container spacing={3}>
           {filteredEvents.length > 0 ? (
             filteredEvents.map((event) => (
-              <Grid item xs={12} md={6} lg={4} key={event.id}>
+              <Grid item xs={12} md={6} lg={4} key={event._id || event.id}>
                 <Card sx={{ 
                   height: '100%', 
                   display: 'flex', 
@@ -937,27 +997,56 @@ const Events: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {registrationsDialog.registrations.map((registration, index) => (
-                      <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '12px' }}>{registration.teamName || 'Individual'}</td>
-                        <td style={{ padding: '12px' }}>{registration.teamLeader?.name || registration.user?.name}</td>
-                        <td style={{ padding: '12px' }}>{registration.teamLeader?.email || registration.user?.email}</td>
-                        <td style={{ padding: '12px', maxWidth: '300px' }}>
-                          {registration.teamMembers?.length > 0 ? (
-                            <Box>
-                              {registration.teamMembers.map((member: any, idx: number) => (
-                                <Typography key={idx} variant="body2" sx={{ mb: 0.5 }}>
-                                  {member.name} ({member.email})
-                                </Typography>
-                              ))}
-                            </Box>
-                          ) : 'N/A'}
-                        </td>
-                        <td style={{ padding: '12px' }}>
-                          {new Date(registration.createdAt).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
+                    {registrationsDialog.registrations.map((registration, index) => {
+                      console.log('Registration data:', registration); // Debug log
+                      return (
+                        <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px' }}>
+                            {registration.teamName || registration.team?.name || 'Individual'}
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            {registration.teamLeader?.name || 
+                             registration.leader?.name || 
+                             registration.user?.name || 
+                             registration.studentName || 
+                             'N/A'}
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            {registration.teamLeader?.email || 
+                             registration.leader?.email || 
+                             registration.user?.email || 
+                             registration.studentEmail || 
+                             'N/A'}
+                          </td>
+                          <td style={{ padding: '12px', maxWidth: '300px' }}>
+                            {registration.teamMembers?.length > 0 ? (
+                              <Box>
+                                {registration.teamMembers.map((member: any, idx: number) => (
+                                  <Typography key={idx} variant="body2" sx={{ mb: 0.5 }}>
+                                    {member.name || member.studentName} ({member.email || member.studentEmail})
+                                  </Typography>
+                                ))}
+                              </Box>
+                            ) : registration.members?.length > 0 ? (
+                              <Box>
+                                {registration.members.map((member: any, idx: number) => (
+                                  <Typography key={idx} variant="body2" sx={{ mb: 0.5 }}>
+                                    {member.name || member.studentName} ({member.email || member.studentEmail})
+                                  </Typography>
+                                ))}
+                              </Box>
+                            ) : 'N/A'}
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            {registration.createdAt ? 
+                             new Date(registration.createdAt).toLocaleDateString() : 
+                             registration.registrationDate ? 
+                             new Date(registration.registrationDate).toLocaleDateString() : 
+                             new Date().toLocaleDateString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </Box>
