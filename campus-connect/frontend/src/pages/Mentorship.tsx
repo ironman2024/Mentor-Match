@@ -18,15 +18,36 @@ interface Mentor {
   name: string;
   role: string;
   email: string;
-  department: string;
-  expertise: string[];
-  mentorRating: number;
+  department?: string;
+  yearOfGraduation?: number;
+  areasOfExpertise: string[];
+  skills: string[];
+  rating: number;
   totalRatings: number;
   avatar?: string;
-  available: boolean;
-  responseRate: number;
-  studentsHelped: number;
   bio?: string;
+  resume?: string;
+  experiences?: Experience[];
+  projects?: Project[];
+  linkedin?: string;
+  github?: string;
+}
+
+interface Experience {
+  title: string;
+  company: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+}
+
+interface Project {
+  title: string;
+  description: string;
+  technologies: string[];
+  url?: string;
+  startDate: string;
+  endDate: string;
 }
 
 const Mentorship: React.FC = () => {
@@ -45,6 +66,8 @@ const Mentorship: React.FC = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
   const [mentorToRate, setMentorToRate] = useState<Mentor | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedMentorDetails, setSelectedMentorDetails] = useState<Mentor | null>(null);
 
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
@@ -59,14 +82,14 @@ const Mentorship: React.FC = () => {
 
   const fetchMentors = async () => {
     try {
-      const response = await axios.get('http://localhost:5002/api/users/mentors', {
+      const response = await axios.get('http://localhost:5002/api/mentorship/mentors', {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
       // Sort mentors by rating
       const sortedMentors = response.data.sort((a: Mentor, b: Mentor) => 
-        (b.mentorRating || 0) - (a.mentorRating || 0)
+        (b.rating || 0) - (a.rating || 0)
       );
       setMentors(sortedMentors);
     } catch (error) {
@@ -186,7 +209,7 @@ const Mentorship: React.FC = () => {
         mentor._id === mentorId 
           ? { 
               ...mentor, 
-              mentorRating: response.data.newRating,
+              rating: response.data.newRating,
               totalRatings: mentor.totalRatings + 1
             }
           : mentor
@@ -200,14 +223,29 @@ const Mentorship: React.FC = () => {
     }
   };
 
+  const handleViewDetails = async (mentorId: string) => {
+    try {
+      const response = await axios.get(`http://localhost:5002/api/mentorship/mentor/${mentorId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setSelectedMentorDetails(response.data);
+      setDetailsDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching mentor details:', error);
+      enqueueSnackbar('Failed to load mentor details', { variant: 'error' });
+    }
+  };
+
   const filteredMentors = mentors.filter(mentor => {
     const searchTerms = search.toLowerCase().split(' ');
-    const mentorText = `${mentor.name} ${mentor.department} ${mentor.expertise.join(' ')}`.toLowerCase();
+    const mentorText = `${mentor.name} ${mentor.department || ''} ${mentor.areasOfExpertise.join(' ')}`.toLowerCase();
     
     const matchesSearch = searchTerms.every(term => mentorText.includes(term));
     const matchesRole = filters.role === 'all' || mentor.role.toLowerCase() === filters.role;
     const matchesDepartment = !filters.department || 
-      mentor.department.toLowerCase().includes(filters.department.toLowerCase());
+      (mentor.department && mentor.department.toLowerCase().includes(filters.department.toLowerCase()));
 
     return matchesSearch && matchesRole && matchesDepartment;
   });
@@ -407,16 +445,16 @@ const Mentorship: React.FC = () => {
                     Department: {mentor.department || 'Not specified'}
                   </Typography>
 
-                  {mentor.expertise && mentor.expertise.length > 0 && (
+                  {mentor.areasOfExpertise && mentor.areasOfExpertise.length > 0 && (
                     <Box mb={2}>
                       <Typography variant="subtitle2" sx={{ color: '#585E6C', fontWeight: 600 }}>
-                        Expertise:
+                        Areas of Expertise:
                       </Typography>
                       <Box display="flex" flexWrap="wrap" gap={0.5}>
-                        {mentor.expertise.map((skill, index) => (
+                        {mentor.areasOfExpertise.slice(0, 3).map((area, index) => (
                           <Chip 
                             key={index}
-                            label={skill}
+                            label={area}
                             size="small"
                             sx={{ 
                               borderRadius: '4px',
@@ -425,6 +463,17 @@ const Mentorship: React.FC = () => {
                             }}
                           />
                         ))}
+                        {mentor.areasOfExpertise.length > 3 && (
+                          <Chip 
+                            label={`+${mentor.areasOfExpertise.length - 3} more`}
+                            size="small"
+                            sx={{ 
+                              borderRadius: '4px',
+                              background: '#B5BBC9',
+                              color: 'white'
+                            }}
+                          />
+                        )}
                       </Box>
                     </Box>
                   )}
@@ -432,13 +481,13 @@ const Mentorship: React.FC = () => {
                   <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                     <Box display="flex" alignItems="center">
                       <Rating 
-                        value={mentor.mentorRating || 0} 
+                        value={mentor.rating || 0} 
                         readOnly 
                         precision={0.5}
                         size="small"
                       />
                       <Typography variant="body2" sx={{ ml: 1, color: '#596273' }}>
-                        {mentor.mentorRating?.toFixed(1) || 'No ratings'} ({mentor.totalRatings || 0})
+                        {mentor.rating?.toFixed(1) || 'No ratings'} ({mentor.totalRatings || 0})
                       </Typography>
                     </Box>
                     {user?.role === 'student' && (
@@ -461,28 +510,49 @@ const Mentorship: React.FC = () => {
                     )}
                   </Box>
 
-                  {user?.role === 'student' && (
+                  <Box display="flex" gap={1} mt={2}>
                     <Button
-                      variant="contained"
+                      variant="outlined"
                       fullWidth
-                      onClick={() => handleRequestMentorship(mentor)}
+                      onClick={() => handleViewDetails(mentor._id)}
                       sx={{
-                        mt: 2,
                         py: 1.5,
                         borderRadius: '8px',
-                        background: '#585E6C',
+                        borderColor: '#585E6C',
+                        color: '#585E6C',
                         fontSize: '1rem',
                         textTransform: 'none',
                         '&:hover': {
-                          background: '#474D59',
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 4px 12px rgba(88,94,108,0.25)',
+                          borderColor: '#474D59',
+                          color: '#474D59',
+                          background: 'rgba(88,94,108,0.05)',
                         }
                       }}
                     >
-                      Request Mentorship
+                      View Details
                     </Button>
-                  )}
+                    {user?.role === 'student' && (
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        onClick={() => handleRequestMentorship(mentor)}
+                        sx={{
+                          py: 1.5,
+                          borderRadius: '8px',
+                          background: '#585E6C',
+                          fontSize: '1rem',
+                          textTransform: 'none',
+                          '&:hover': {
+                            background: '#474D59',
+                            transform: 'translateY(-1px)',
+                            boxShadow: '0 4px 12px rgba(88,94,108,0.25)',
+                          }
+                        }}
+                      >
+                        Request Mentorship
+                      </Button>
+                    )}
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
@@ -614,6 +684,243 @@ const Mentorship: React.FC = () => {
           }}>
             Cancel
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Mentor Details Dialog */}
+      <Dialog
+        open={detailsDialogOpen}
+        onClose={() => {
+          setDetailsDialogOpen(false);
+          setSelectedMentorDetails(null);
+        }}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            maxHeight: '90vh'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 2,
+          borderBottom: '1px solid #E0E0E0',
+          pb: 2
+        }}>
+          {selectedMentorDetails && (
+            <>
+              <Avatar 
+                src={selectedMentorDetails.avatar} 
+                sx={{ width: 60, height: 60 }}
+              >
+                {selectedMentorDetails.name[0]}
+              </Avatar>
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                  {selectedMentorDetails.name}
+                </Typography>
+                <Typography variant="subtitle1" color="textSecondary">
+                  {selectedMentorDetails.role} • {selectedMentorDetails.department}
+                </Typography>
+              </Box>
+            </>
+          )}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {selectedMentorDetails && (
+            <Box>
+              {/* Bio Section */}
+              {selectedMentorDetails.bio && (
+                <Box mb={3}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                    About
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: '#596273' }}>
+                    {selectedMentorDetails.bio}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Areas of Expertise */}
+              {selectedMentorDetails.areasOfExpertise?.length > 0 && (
+                <Box mb={3}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                    Areas of Expertise
+                  </Typography>
+                  <Box display="flex" flexWrap="wrap" gap={1}>
+                    {selectedMentorDetails.areasOfExpertise.map((area, index) => (
+                      <Chip 
+                        key={index}
+                        label={area}
+                        sx={{ 
+                          background: '#585E6C',
+                          color: 'white'
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Skills */}
+              {selectedMentorDetails.skills?.length > 0 && (
+                <Box mb={3}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                    Skills
+                  </Typography>
+                  <Box display="flex" flexWrap="wrap" gap={1}>
+                    {selectedMentorDetails.skills.map((skill, index) => (
+                      <Chip 
+                        key={index}
+                        label={skill}
+                        variant="outlined"
+                        sx={{ 
+                          borderColor: '#585E6C',
+                          color: '#585E6C'
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Experience */}
+              {selectedMentorDetails.experiences?.length > 0 && (
+                <Box mb={3}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                    Experience
+                  </Typography>
+                  {selectedMentorDetails.experiences.map((exp, index) => (
+                    <Box key={index} mb={2} p={2} sx={{ border: '1px solid #E0E0E0', borderRadius: '8px' }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        {exp.title}
+                      </Typography>
+                      <Typography variant="body2" color="primary" gutterBottom>
+                        {exp.company}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary" gutterBottom>
+                        {new Date(exp.startDate).toLocaleDateString()} - {new Date(exp.endDate).toLocaleDateString()}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        {exp.description}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {/* Projects */}
+              {selectedMentorDetails.projects?.length > 0 && (
+                <Box mb={3}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                    Projects
+                  </Typography>
+                  {selectedMentorDetails.projects.map((project, index) => (
+                    <Box key={index} mb={2} p={2} sx={{ border: '1px solid #E0E0E0', borderRadius: '8px' }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        {project.title}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1, mb: 1 }}>
+                        {project.description}
+                      </Typography>
+                      <Box display="flex" flexWrap="wrap" gap={0.5} mb={1}>
+                        {project.technologies.map((tech, techIndex) => (
+                          <Chip 
+                            key={techIndex}
+                            label={tech}
+                            size="small"
+                            sx={{ 
+                              background: '#F0F0F0',
+                              fontSize: '0.75rem'
+                            }}
+                          />
+                        ))}
+                      </Box>
+                      {project.url && (
+                        <Button 
+                          size="small" 
+                          href={project.url} 
+                          target="_blank"
+                          sx={{ color: '#585E6C' }}
+                        >
+                          View Project
+                        </Button>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {/* Resume */}
+              {selectedMentorDetails.resume && (
+                <Box mb={3}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                    Resume
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    href={`http://localhost:5002${selectedMentorDetails.resume}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      borderColor: '#585E6C',
+                      color: '#585E6C',
+                      '&:hover': {
+                        borderColor: '#474D59',
+                        color: '#474D59',
+                        background: 'rgba(88,94,108,0.05)'
+                      }
+                    }}
+                  >
+                    View Resume (PDF)
+                  </Button>
+                </Box>
+              )}
+
+              {/* Rating */}
+              <Box display="flex" alignItems="center" mb={2}>
+                <Rating 
+                  value={selectedMentorDetails.rating || 0} 
+                  readOnly 
+                  precision={0.5}
+                />
+                <Typography variant="body2" sx={{ ml: 1 }}>
+                  {selectedMentorDetails.rating?.toFixed(1) || 'No ratings'} ({selectedMentorDetails.totalRatings || 0} reviews)
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button 
+            onClick={() => {
+              setDetailsDialogOpen(false);
+              setSelectedMentorDetails(null);
+            }}
+            sx={{ color: '#B5BBC9' }}
+          >
+            Close
+          </Button>
+          {user?.role === 'student' && selectedMentorDetails && (
+            <Button 
+              onClick={() => {
+                setDetailsDialogOpen(false);
+                handleRequestMentorship(selectedMentorDetails);
+              }}
+              variant="contained"
+              sx={{
+                background: '#585E6C',
+                '&:hover': {
+                  background: '#474D59'
+                }
+              }}
+            >
+              Request Mentorship
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

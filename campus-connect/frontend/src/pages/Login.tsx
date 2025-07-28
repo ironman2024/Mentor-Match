@@ -21,8 +21,14 @@ const Login: React.FC = () => {
         return;
       }
 
-      await login(email, password);
-      navigate('/dashboard');
+      const response = await login(email, password);
+      
+      // Check if mentor setup is needed
+      if (response.user.needsMentorSetup && (response.user.role === 'alumni' || response.user.role === 'faculty')) {
+        navigate('/mentor-setup');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Failed to login');

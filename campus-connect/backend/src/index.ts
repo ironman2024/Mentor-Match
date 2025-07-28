@@ -58,10 +58,14 @@ if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = 'default_jwt_secret_for_development';
 }
 
-// Create uploads directory if it doesn't exist
+// Create uploads directories if they don't exist
 const uploadsDir = path.join(__dirname, '../uploads/images');
+const resumesDir = path.join(__dirname, '../uploads/resumes');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
+}
+if (!fs.existsSync(resumesDir)) {
+  fs.mkdirSync(resumesDir, { recursive: true });
 }
 
 // Serve static files from uploads directory

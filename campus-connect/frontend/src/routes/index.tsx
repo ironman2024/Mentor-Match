@@ -16,6 +16,7 @@ const Projects = React.lazy(() => import('../pages/Projects'));
 const Events = React.lazy(() => import('../pages/Events'));
 const Mentorship = React.lazy(() => import('../pages/Mentorship'));
 const MentorshipDashboard = React.lazy(() => import('../pages/Mentorship/Dashboard'));
+const MentorSetup = React.lazy(() => import('../pages/MentorSetup'));
 const Opportunities = React.lazy(() => import('../pages/Opportunities'));
 const Inbox = React.lazy(() => import('../pages/Inbox'));
 const AIChat = React.lazy(() => import('../pages/AIChat'));
@@ -101,6 +102,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute requiredRoles={['faculty', 'alumni']}>
               <MentorshipDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mentor-setup"
+          element={
+            <ProtectedRoute requiredRoles={['faculty', 'alumni']}>
+              <MentorSetup />
             </ProtectedRoute>
           }
         />

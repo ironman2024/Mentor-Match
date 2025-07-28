@@ -16,6 +16,7 @@ export interface IUser extends Document {
   }[];
   bio?: string;
   avatar?: string;
+  resume?: string;
   linkedin?: string;
   github?: string;
   yearOfGraduation?: number;
@@ -33,6 +34,14 @@ export interface IUser extends Document {
     startDate: Date;
     endDate?: Date;
     description: string;
+  }[];
+  projects: {
+    title: string;
+    description: string;
+    technologies: string[];
+    url?: string;
+    startDate: Date;
+    endDate?: Date;
   }[];
   reputation: number;
   badges: string[];
@@ -85,6 +94,7 @@ const userSchema = new mongoose.Schema({
   },
   bio: String,
   avatar: String,
+  resume: String,
   linkedin: String,
   github: String,
   yearOfGraduation: Number,
@@ -102,6 +112,14 @@ const userSchema = new mongoose.Schema({
     startDate: Date,
     endDate: Date,
     description: String
+  }],
+  projects: [{
+    title: String,
+    description: String,
+    technologies: [String],
+    url: String,
+    startDate: Date,
+    endDate: Date
   }],
   reputation: { type: Number, default: 0 },
   badges: [String],

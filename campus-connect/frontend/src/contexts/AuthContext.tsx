@@ -13,12 +13,14 @@ interface User {
   skills: string[];
   reputation: number;
   badges: string[];
+  needsMentorSetup?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
@@ -97,7 +99,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avatar: response.data.user.avatar,
           skills: response.data.user.skills || [],
           reputation: response.data.user.reputation || 0,
-          badges: response.data.user.badges || []
+          badges: response.data.user.badges || [],
+          needsMentorSetup: response.data.user.needsMentorSetup
         };
         
         setUser(userData);
@@ -118,6 +121,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(() => {
     setAuthToken(null);
     setUser(null);
+  }, []);
+
+  const updateUser = useCallback((updates: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...updates } : null);
   }, []);
 
   // Update axios interceptors
@@ -153,6 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user, 
       login, 
       logout, 
+      updateUser,
       isAuthenticated: !!user, 
       loading,
       error 

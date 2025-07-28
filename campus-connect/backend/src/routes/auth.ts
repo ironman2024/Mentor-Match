@@ -52,6 +52,13 @@ router.post('/login', async (req: Request, res: Response) => {
     );
 
     console.log('Login successful for user:', email);
+    
+    // Check if mentor profile setup is needed
+    const needsMentorSetup = (user.role === 'alumni' || user.role === 'faculty') && 
+                            (!user.mentorshipAvailability || 
+                             !user.areasOfExpertise || 
+                             user.areasOfExpertise.length === 0);
+    
     res.json({
       token,
       user: {
@@ -62,7 +69,8 @@ router.post('/login', async (req: Request, res: Response) => {
         avatar: user.avatar,
         skills: user.skills || [],
         reputation: user.reputation || 0,
-        badges: user.badges || []
+        badges: user.badges || [],
+        needsMentorSetup
       }
     });
 
