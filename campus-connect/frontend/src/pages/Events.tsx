@@ -38,7 +38,6 @@ import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import TeamRegistrationDialog from '../components/dialogs/TeamRegistrationDialog';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import * as XLSX from 'xlsx';
 
 // Custom theme with Coral Red color palette
 const theme = createTheme({
@@ -299,19 +298,29 @@ const Events: React.FC = () => {
     }
   };
 
-  const downloadExcel = () => {
-    const data = registrationsDialog.registrations.map(reg => ({
-      'Team Name': reg.teamName || 'Individual',
-      'Team Leader': reg.teamLeader?.name || reg.user?.name,
-      'Leader Email': reg.teamLeader?.email || reg.user?.email,
-      'Team Members': reg.teamMembers?.map((m: any) => `${m.name} (${m.email})`).join('; ') || 'N/A',
-      'Registration Date': new Date(reg.createdAt).toLocaleDateString()
-    }));
+  const downloadCSV = () => {
+    const headers = ['Team Name', 'Team Leader', 'Leader Email', 'Team Members', 'Registration Date'];
+    const csvData = registrationsDialog.registrations.map(reg => [
+      reg.teamName || 'Individual',
+      reg.teamLeader?.name || reg.user?.name,
+      reg.teamLeader?.email || reg.user?.email,
+      reg.teamMembers?.map((m: any) => `${m.name} (${m.email})`).join('; ') || 'N/A',
+      new Date(reg.createdAt).toLocaleDateString()
+    ]);
     
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Registrations');
-    XLSX.writeFile(workbook, `${registrationsDialog.eventTitle}_registrations.xlsx`);
+    const csvContent = [headers, ...csvData]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${registrationsDialog.eventTitle}_registrations.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const canCreateEvent = user?.role === 'faculty' || user?.role === 'club';
@@ -901,7 +910,7 @@ const Events: React.FC = () => {
             <span>Registrations - {registrationsDialog.eventTitle}</span>
             <Button
               startIcon={<DownloadIcon />}
-              onClick={downloadExcel}
+              onClick={downloadCSV}
               sx={{ 
                 color: 'white',
                 borderColor: 'white',
@@ -911,7 +920,7 @@ const Events: React.FC = () => {
               }}
               variant="outlined"
             >
-              Download Excel
+              Download CSV
             </Button>
           </DialogTitle>
           <DialogContent sx={{ p: 0 }}>
