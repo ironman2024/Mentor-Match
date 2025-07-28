@@ -30,12 +30,15 @@ import {
   Search as SearchIcon,
   Add as AddIcon,
   LocationOn as LocationIcon,
-  People as PeopleIcon
+  People as PeopleIcon,
+  Visibility as VisibilityIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import TeamRegistrationDialog from '../components/dialogs/TeamRegistrationDialog';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import * as XLSX from 'xlsx';
 
 // Custom theme with Coral Red color palette
 const theme = createTheme({
@@ -157,6 +160,8 @@ interface Event {
   registered: number;
   isTeamEvent: boolean;
   teamSize: number;
+  registrationDeadline: string;
+  registrations: any[];
 }
 
 const Events: React.FC = () => {
@@ -173,7 +178,8 @@ const Events: React.FC = () => {
     type: 'hackathon',
     capacity: 0,
     isTeamEvent: false,
-    teamSize: 1
+    teamSize: 1,
+    registrationDeadline: ''
   });
 
   const [registrationDialog, setRegistrationDialog] = useState({
@@ -190,6 +196,13 @@ const Events: React.FC = () => {
     open: false,
     message: '',
     type: 'success'
+  });
+
+  const [registrationsDialog, setRegistrationsDialog] = useState({
+    open: false,
+    eventId: '',
+    eventTitle: '',
+    registrations: [] as any[]
   });
 
   const showNotification = (message: string, type: 'success' | 'error') => {
@@ -236,6 +249,15 @@ const Events: React.FC = () => {
       showNotification('Only students can register for events', 'error');
       return;
     }
+    
+    // Check if registration deadline has passed
+    const now = new Date();
+    const deadline = new Date(event.registrationDeadline);
+    if (now > deadline) {
+      showNotification('Registration deadline has passed', 'error');
+      return;
+    }
+    
     setRegistrationDialog({
       open: true,
       eventId: event._id,
@@ -256,6 +278,40 @@ const Events: React.FC = () => {
       console.error('Registration error:', error);
       showNotification('Failed to register. Please try again.', 'error');
     }
+  };
+
+  const handleViewRegistrations = async (eventId: string, eventTitle: string) => {
+    try {
+      const response = await axios.get(`http://localhost:5002/api/events/${eventId}/registrations`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setRegistrationsDialog({
+        open: true,
+        eventId,
+        eventTitle,
+        registrations: response.data
+      });
+    } catch (error) {
+      console.error('Error fetching registrations:', error);
+      showNotification('Failed to load registrations', 'error');
+    }
+  };
+
+  const downloadExcel = () => {
+    const data = registrationsDialog.registrations.map(reg => ({
+      'Team Name': reg.teamName || 'Individual',
+      'Team Leader': reg.teamLeader?.name || reg.user?.name,
+      'Leader Email': reg.teamLeader?.email || reg.user?.email,
+      'Team Members': reg.teamMembers?.map((m: any) => `${m.name} (${m.email})`).join('; ') || 'N/A',
+      'Registration Date': new Date(reg.createdAt).toLocaleDateString()
+    }));
+    
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Registrations');
+    XLSX.writeFile(workbook, `${registrationsDialog.eventTitle}_registrations.xlsx`);
   };
 
   const canCreateEvent = user?.role === 'faculty' || user?.role === 'club';
@@ -483,7 +539,7 @@ const Events: React.FC = () => {
                         border: '1px solid #F0F0F0'
                       }}
                     >
-                      <Box display="flex" alignItems="center" gap={3} mb={2}>
+                      <Box display="flex" alignItems="center" gap={2} mb={2} flexWrap="wrap">
                         <Box display="flex" alignItems="center">
                           <EventIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
                           <Typography variant="body2" fontWeight={600}>
@@ -501,6 +557,25 @@ const Events: React.FC = () => {
                           </Typography>
                         </Box>
                       </Box>
+                      
+                      {event.registrationDeadline && (
+                        <Box mb={2} p={1.5} sx={{ 
+                          backgroundColor: new Date() > new Date(event.registrationDeadline) ? '#ffebee' : '#e8f5e8',
+                          borderRadius: 2,
+                          border: `1px solid ${new Date() > new Date(event.registrationDeadline) ? '#ffcdd2' : '#c8e6c9'}`
+                        }}>
+                          <Typography variant="body2" fontWeight={600} sx={{ 
+                            color: new Date() > new Date(event.registrationDeadline) ? '#d32f2f' : '#2e7d32'
+                          }}>
+                            Registration Deadline: {new Date(event.registrationDeadline).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                            {new Date() > new Date(event.registrationDeadline) && ' (Expired)'}
+                          </Typography>
+                        </Box>
+                      )}
 
                       <Box 
                         display="flex" 
@@ -544,27 +619,60 @@ const Events: React.FC = () => {
                       </Box>
                     </Box>
                     
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      disabled={event.registered >= event.capacity}
-                      onClick={() => handleRegisterClick(event)}
-                      sx={{ 
-                        mt: 2,
-                        py: 1.5,
-                        backgroundColor: event.registered >= event.capacity ? '#95A5A6' : theme.palette.primary.main,
-                        color: 'white',
-                        borderRadius: 3,
-                        fontWeight: 700,
-                        '&:hover': {
-                          backgroundColor: event.registered >= event.capacity 
-                            ? '#95A5A6' 
-                            : theme.palette.primary.dark
+                    {canCreateEvent ? (
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        startIcon={<VisibilityIcon />}
+                        onClick={() => handleViewRegistrations(event._id, event.title)}
+                        sx={{ 
+                          mt: 2,
+                          py: 1.5,
+                          borderColor: theme.palette.primary.main,
+                          color: theme.palette.primary.main,
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          '&:hover': {
+                            borderColor: theme.palette.primary.dark,
+                            color: theme.palette.primary.dark,
+                            backgroundColor: 'rgba(88,94,108,0.05)'
+                          }
+                        }}
+                      >
+                        View Registrations ({event.registrations?.length || 0})
+                      </Button>
+                    ) : (
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        disabled={
+                          (event.registrations?.length || 0) >= event.capacity || 
+                          (event.registrationDeadline && new Date() > new Date(event.registrationDeadline))
                         }
-                      }}
-                    >
-                      {event.registered >= event.capacity ? 'No Spots Available' : 'Register Now'}
-                    </Button>
+                        onClick={() => handleRegisterClick(event)}
+                        sx={{ 
+                          mt: 2,
+                          py: 1.5,
+                          backgroundColor: 
+                            (event.registrations?.length || 0) >= event.capacity ? '#95A5A6' :
+                            (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) ? '#d32f2f' :
+                            theme.palette.primary.main,
+                          color: 'white',
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          '&:hover': {
+                            backgroundColor: 
+                              (event.registrations?.length || 0) >= event.capacity ? '#95A5A6' :
+                              (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) ? '#d32f2f' :
+                              theme.palette.primary.dark
+                          }
+                        }}
+                      >
+                        {(event.registrations?.length || 0) >= event.capacity ? 'No Spots Available' :
+                         (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) ? 'Registration Closed' :
+                         'Register Now'}
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>
@@ -638,17 +746,28 @@ const Events: React.FC = () => {
               />
               
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    label="Date"
+                    label="Event Date"
                     type="date"
                     InputLabelProps={{ shrink: true }}
                     value={eventForm.date}
                     onChange={(e) => setEventForm(prev => ({ ...prev, date: e.target.value }))}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Registration Deadline"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                    value={eventForm.registrationDeadline}
+                    onChange={(e) => setEventForm(prev => ({ ...prev, registrationDeadline: e.target.value }))}
+                    helperText="Last date for registration"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
                     label="Location"
@@ -759,6 +878,103 @@ const Events: React.FC = () => {
           showNotification={showNotification}
         />
         
+        {/* Registrations Dialog */}
+        <Dialog
+          open={registrationsDialog.open}
+          onClose={() => setRegistrationsDialog({ open: false, eventId: '', eventTitle: '', registrations: [] })}
+          maxWidth="lg"
+          fullWidth
+          PaperProps={{
+            sx: { borderRadius: 4, maxHeight: '90vh' }
+          }}
+        >
+          <DialogTitle sx={{ 
+            background: 'linear-gradient(45deg, #585E6C 30%, #B5BBC9 90%)', 
+            color: 'white',
+            fontSize: '1.5rem',
+            fontWeight: 700,
+            py: 2.5,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>Registrations - {registrationsDialog.eventTitle}</span>
+            <Button
+              startIcon={<DownloadIcon />}
+              onClick={downloadExcel}
+              sx={{ 
+                color: 'white',
+                borderColor: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(255,255,255,0.1)'
+                }
+              }}
+              variant="outlined"
+            >
+              Download Excel
+            </Button>
+          </DialogTitle>
+          <DialogContent sx={{ p: 0 }}>
+            {registrationsDialog.registrations.length > 0 ? (
+              <Box sx={{ overflow: 'auto', maxHeight: '60vh' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f5f5f5' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Team Name</th>
+                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Team Leader</th>
+                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Leader Email</th>
+                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Team Members</th>
+                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Registration Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registrationsDialog.registrations.map((registration, index) => (
+                      <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '12px' }}>{registration.teamName || 'Individual'}</td>
+                        <td style={{ padding: '12px' }}>{registration.teamLeader?.name || registration.user?.name}</td>
+                        <td style={{ padding: '12px' }}>{registration.teamLeader?.email || registration.user?.email}</td>
+                        <td style={{ padding: '12px', maxWidth: '300px' }}>
+                          {registration.teamMembers?.length > 0 ? (
+                            <Box>
+                              {registration.teamMembers.map((member: any, idx: number) => (
+                                <Typography key={idx} variant="body2" sx={{ mb: 0.5 }}>
+                                  {member.name} ({member.email})
+                                </Typography>
+                              ))}
+                            </Box>
+                          ) : 'N/A'}
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          {new Date(registration.createdAt).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            ) : (
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="h6" color="textSecondary">
+                  No registrations yet
+                </Typography>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: 3, backgroundColor: '#FAFAFA' }}>
+            <Button 
+              onClick={() => setRegistrationsDialog({ open: false, eventId: '', eventTitle: '', registrations: [] })}
+              variant="outlined"
+              sx={{ 
+                color: theme.palette.secondary.main, 
+                borderColor: theme.palette.secondary.main,
+                fontWeight: 600
+              }}
+            >
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         <Snackbar
           open={notification.open}
           autoHideDuration={6000}

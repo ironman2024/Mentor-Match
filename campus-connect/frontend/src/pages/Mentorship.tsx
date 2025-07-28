@@ -671,9 +671,18 @@ const Mentorship: React.FC = () => {
           <Typography variant="body1" gutterBottom>
             How would you rate your experience with this mentor?
           </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Click on the stars to rate (1-5 stars)
+          </Typography>
           <Rating
             size="large"
-            onChange={(_, value) => value && handleRateMentor(mentorToRate?._id || '', value)}
+            onChange={(_, value) => {
+              if (value) {
+                handleRateMentor(mentorToRate?._id || '', value);
+                setRatingDialogOpen(false);
+                setMentorToRate(null);
+              }
+            }}
             sx={{ mt: 2 }}
           />
         </DialogContent>
@@ -905,21 +914,41 @@ const Mentorship: React.FC = () => {
             Close
           </Button>
           {user?.role === 'student' && selectedMentorDetails && (
-            <Button 
-              onClick={() => {
-                setDetailsDialogOpen(false);
-                handleRequestMentorship(selectedMentorDetails);
-              }}
-              variant="contained"
-              sx={{
-                background: '#585E6C',
-                '&:hover': {
-                  background: '#474D59'
-                }
-              }}
-            >
-              Request Mentorship
-            </Button>
+            <>
+              <Button 
+                onClick={() => {
+                  setMentorToRate(selectedMentorDetails);
+                  setRatingDialogOpen(true);
+                }}
+                variant="outlined"
+                sx={{
+                  borderColor: '#585E6C',
+                  color: '#585E6C',
+                  mr: 1,
+                  '&:hover': {
+                    borderColor: '#474D59',
+                    color: '#474D59'
+                  }
+                }}
+              >
+                Rate Mentor
+              </Button>
+              <Button 
+                onClick={() => {
+                  setDetailsDialogOpen(false);
+                  handleRequestMentorship(selectedMentorDetails);
+                }}
+                variant="contained"
+                sx={{
+                  background: '#585E6C',
+                  '&:hover': {
+                    background: '#474D59'
+                  }
+                }}
+              >
+                Request Mentorship
+              </Button>
+            </>
           )}
         </DialogActions>
       </Dialog>
