@@ -1,3 +1,17 @@
+import React from 'react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell
+} from '@mui/material';
+
 const EventRegistrationsDialog: React.FC<{ registrations: any[]; onClose: () => void }> = ({ registrations, onClose }) => {
   return (
     <Dialog open={true} onClose={onClose} maxWidth="md" fullWidth>
@@ -36,3 +50,5 @@ const EventRegistrationsDialog: React.FC<{ registrations: any[]; onClose: () => 
     </Dialog>
   );
 };
+
+export default EventRegistrationsDialog;
