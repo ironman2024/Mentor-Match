@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -6,17 +6,26 @@ import {
   Avatar,
   Typography,
   IconButton,
-  Box
+  Box,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
 import {
   ThumbUp as LikeIcon,
   Comment as CommentIcon,
-  Share as ShareIcon
+  Share as ShareIcon,
+  MoreVert as MoreVertIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 interface Post {
   id: string;
+  _id?: string;
   author: {
+    _id?: string;
     name: string;
     avatar?: string;
     role: string;
@@ -33,17 +42,73 @@ interface PostFeedProps {
 }
 
 const PostFeed: React.FC<PostFeedProps> = ({ posts }) => {
+  const navigate = useNavigate();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, post: Post) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedPost(post);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedPost(null);
+  };
+
+  const handleViewProfile = () => {
+    if (selectedPost?.author._id) {
+      navigate(`/profile/${selectedPost.author._id}`);
+    }
+    handleMenuClose();
+  };
+
+  const handleAvatarClick = (authorId?: string) => {
+    if (authorId) {
+      navigate(`/profile/${authorId}`);
+    }
+  };
+
   return (
     <Box display="flex" flexDirection="column" gap={2}>
       {posts.map((post) => (
-        <Card key={post._id}>
+        <Card key={post._id || post.id}>
           <CardHeader
             avatar={
-              <Avatar src={post.author.avatar}>
+              <Avatar 
+                src={post.author.avatar}
+                onClick={() => handleAvatarClick(post.author._id)}
+                sx={{ 
+                  cursor: 'pointer',
+                  '&:hover': {
+                    transform: 'scale(1.05)',
+                    transition: 'transform 0.2s ease'
+                  }
+                }}
+              >
                 {post.author.name[0]}
               </Avatar>
             }
-            title={post.author.name}
+            action={
+              <IconButton 
+                onClick={(e) => handleMenuOpen(e, post)}
+                size="small"
+              >
+                <MoreVertIcon />
+              </IconButton>
+            }
+            title={
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  cursor: 'pointer',
+                  '&:hover': { color: 'primary.main' }
+                }}
+                onClick={() => handleAvatarClick(post.author._id)}
+              >
+                {post.author.name}
+              </Typography>
+            }
             subheader={post.author.role}
           />
           <CardContent>
@@ -78,6 +143,21 @@ const PostFeed: React.FC<PostFeedProps> = ({ posts }) => {
           </CardContent>
         </Card>
       ))}
+      
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleViewProfile}>
+          <ListItemIcon>
+            <PersonIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>View Profile</ListItemText>
+        </MenuItem>
+      </Menu>
     </Box>
   );
 };

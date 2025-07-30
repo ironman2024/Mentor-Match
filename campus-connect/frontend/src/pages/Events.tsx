@@ -270,48 +270,30 @@ const Events: React.FC = () => {
 
   const handleRegistrationSubmit = async (registrationData: any) => {
     try {
+      console.log('Submitting registration data:', registrationData); // Debug log
+      
       const response = await axios.post(
         `http://localhost:5002/api/events/${registrationDialog.eventId}/register`,
         registrationData,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
           }
         }
       );
       
-      // Create registration object with proper structure
-      const newRegistration = {
-        _id: response.data._id || Date.now().toString(),
-        teamName: registrationData.teamName || 'Individual',
-        teamLeader: registrationData.teamLeader || { name: user?.name, email: user?.email },
-        user: { name: user?.name, email: user?.email },
-        teamMembers: registrationData.teamMembers || [],
-        createdAt: new Date().toISOString(),
-        ...response.data
-      };
-      
-      // Update local state immediately
-      setEvents(prevEvents => 
-        prevEvents.map(event => 
-          event._id === registrationDialog.eventId 
-            ? { 
-                ...event, 
-                registrations: [...(event.registrations || []), newRegistration],
-                registered: (event.registrations?.length || 0) + 1
-              }
-            : event
-        )
-      );
+      console.log('Registration response:', response.data); // Debug log
       
       showNotification('Successfully registered for the event!', 'success');
       setRegistrationDialog({ open: false, eventId: '', event: null });
       
-      // Refresh from server after a short delay
-      setTimeout(() => fetchEvents(), 1000);
-    } catch (error) {
+      // Refresh events immediately to get updated data
+      await fetchEvents();
+    } catch (error: any) {
       console.error('Registration error:', error);
-      showNotification('Failed to register. Please try again.', 'error');
+      const errorMessage = error.response?.data?.message || 'Failed to register. Please try again.';
+      showNotification(errorMessage, 'error');
     }
   };
 
@@ -320,56 +302,110 @@ const Events: React.FC = () => {
       // First refresh events to get latest data
       await fetchEvents();
       
-      // Get registrations from the registrations endpoint
-      const response = await axios.get(`http://localhost:5002/api/events/${eventId}/registrations`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // Try to get registrations from the specific endpoint first
+      let registrations = [];
+      try {
+        const response = await axios.get(`http://localhost:5002/api/events/${eventId}/registrations`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        registrations = response.data || [];
+        console.log('Registrations from API:', registrations); // Debug log
+      } catch (apiError) {
+        console.log('Registrations API failed, trying event data');
+        // If specific endpoint fails, get from events data
+        const currentEvent = events.find(e => e._id === eventId);
+        registrations = currentEvent?.registrations || [];
+        console.log('Registrations from event:', registrations); // Debug log
+      }
       
       setRegistrationsDialog({
         open: true,
         eventId,
         eventTitle,
-        registrations: response.data || []
+        registrations
       });
+      
+      if (registrations.length === 0) {
+        showNotification('No registrations found', 'info');
+      }
     } catch (error) {
       console.error('Error fetching registrations:', error);
-      // If registrations endpoint fails, get from current events state
-      const currentEvent = events.find(e => e._id === eventId);
-      setRegistrationsDialog({
-        open: true,
-        eventId,
-        eventTitle,
-        registrations: currentEvent?.registrations || []
-      });
-      
-      if (!currentEvent?.registrations?.length) {
-        showNotification('No registrations found or failed to load', 'error');
-      }
+      showNotification('Failed to load registrations', 'error');
     }
   };
 
   const downloadCSV = () => {
-    const headers = ['Team Name', 'Team Leader', 'Leader Email', 'Team Members', 'Registration Date'];
-    const csvData = registrationsDialog.registrations.map(reg => [
-      reg.teamName || reg.team?.name || 'Individual',
-      reg.teamLeader?.name || reg.leader?.name || reg.user?.name || reg.studentName || 'N/A',
-      reg.teamLeader?.email || reg.leader?.email || reg.user?.email || reg.studentEmail || 'N/A',
-      reg.teamMembers?.length > 0 ? 
-        reg.teamMembers.map((m: any) => `${m.name || m.studentName} (${m.email || m.studentEmail})`).join('; ') :
-        reg.members?.length > 0 ?
-        reg.members.map((m: any) => `${m.name || m.studentName} (${m.email || m.studentEmail})`).join('; ') :
-        'N/A',
-      reg.createdAt ? 
+    // Find the maximum team size from the event or registrations
+    const currentEvent = events.find(e => e._id === registrationsDialog.eventId);
+    const maxTeamSize = currentEvent?.teamSize || 5; // Default to 5 if not found
+    
+    // Build dynamic headers
+    const baseHeaders = ['Team Name', 'Team Leader', 'Team Leader Email'];
+    const memberHeaders = [];
+    for (let i = 1; i <= maxTeamSize - 1; i++) { // -1 because leader is separate
+      memberHeaders.push(`Team Member ${i}`);
+      memberHeaders.push(`Team Member ${i} Email`);
+    }
+    const headers = [...baseHeaders, ...memberHeaders, 'Registration Date'];
+    
+    const csvData = registrationsDialog.registrations.map(reg => {
+      console.log('CSV Processing registration:', JSON.stringify(reg, null, 2)); // Detailed debug log
+      
+      const teamName = reg.teamName || reg.team?.name || 'Individual';
+      
+      // Try all possible field combinations for leader
+      const leaderName = reg.leaderName || 
+                        reg.leader?.name || 
+                        reg.teamLeader?.name || 
+                        reg.user?.name || 
+                        reg.studentName || 
+                        reg.name || 
+                        'N/A';
+      const leaderEmail = reg.leaderEmail || 
+                         reg.leader?.email || 
+                         reg.teamLeader?.email || 
+                         reg.user?.email || 
+                         reg.studentEmail || 
+                         reg.email || 
+                         'N/A';
+      
+      // Get team members
+      const members = reg.members || reg.teamMembers || [];
+      console.log('CSV Team members found:', members); // Debug log
+      console.log('CSV Extracted data:', { teamName, leaderName, leaderEmail, membersCount: members.length }); // Debug log
+      
+      const row = [teamName, leaderName, leaderEmail];
+      
+      // Add member details dynamically based on team size
+      for (let i = 0; i < maxTeamSize - 1; i++) {
+        if (i < members.length && members[i]) {
+          const member = members[i];
+          const memberName = member.name || '';
+          const memberEmail = member.email || '';
+          row.push(memberName);
+          row.push(memberEmail);
+          console.log(`Member ${i + 1}:`, memberName, memberEmail); // Debug log
+        } else {
+          row.push(''); // Empty name
+          row.push(''); // Empty email
+        }
+      }
+      
+      // Add registration date
+      const regDate = reg.createdAt ? 
         new Date(reg.createdAt).toLocaleDateString() : 
         reg.registrationDate ? 
         new Date(reg.registrationDate).toLocaleDateString() : 
-        new Date().toLocaleDateString()
-    ]);
+        new Date().toLocaleDateString();
+      
+      row.push(regDate);
+      return row;
+    });
     
     const csvContent = [headers, ...csvData]
-      .map(row => row.map(field => `"${field || 'N/A'}"`).join(','))
+      .map(row => row.map(field => `"${field || ''}"`).join(','))
       .join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -658,7 +694,7 @@ const Events: React.FC = () => {
                               Capacity
                             </Typography>
                             <Typography variant="body2" fontWeight={600}>
-                              {event.registrations.length}/{event.capacity} spots
+                              {event.registered || event.registrationStats?.totalRegistered || 0}/{event.capacity} spots
                             </Typography>
                           </Box>
                           <Box 
@@ -673,11 +709,11 @@ const Events: React.FC = () => {
                           >
                             <Box 
                               sx={{ 
-                                width: `${(event.registered / event.capacity) * 100}%`, 
+                                width: `${((event.registered || event.registrationStats?.totalRegistered || 0) / event.capacity) * 100}%`, 
                                 height: '100%', 
-                                backgroundColor: event.registered >= event.capacity 
+                                backgroundColor: (event.registered || event.registrationStats?.totalRegistered || 0) >= event.capacity 
                                   ? '#95A5A6' 
-                                  : (event.registered / event.capacity) > 0.8 
+                                  : ((event.registered || event.registrationStats?.totalRegistered || 0) / event.capacity) > 0.8 
                                     ? '#F39C12' 
                                     : theme.palette.primary.main,
                                 borderRadius: 4
@@ -715,7 +751,7 @@ const Events: React.FC = () => {
                         fullWidth
                         variant="contained"
                         disabled={
-                          (event.registrations?.length || 0) >= event.capacity || 
+                          (event.registered || event.registrationStats?.totalRegistered || 0) >= event.capacity || 
                           (event.registrationDeadline && new Date() > new Date(event.registrationDeadline))
                         }
                         onClick={() => handleRegisterClick(event)}
@@ -723,7 +759,7 @@ const Events: React.FC = () => {
                           mt: 2,
                           py: 1.5,
                           backgroundColor: 
-                            (event.registrations?.length || 0) >= event.capacity ? '#95A5A6' :
+                            (event.registered || event.registrationStats?.totalRegistered || 0) >= event.capacity ? '#95A5A6' :
                             (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) ? '#d32f2f' :
                             theme.palette.primary.main,
                           color: 'white',
@@ -731,13 +767,13 @@ const Events: React.FC = () => {
                           fontWeight: 700,
                           '&:hover': {
                             backgroundColor: 
-                              (event.registrations?.length || 0) >= event.capacity ? '#95A5A6' :
+                              (event.registered || event.registrationStats?.totalRegistered || 0) >= event.capacity ? '#95A5A6' :
                               (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) ? '#d32f2f' :
                               theme.palette.primary.dark
                           }
                         }}
                       >
-                        {(event.registrations?.length || 0) >= event.capacity ? 'No Spots Available' :
+                        {(event.registered || event.registrationStats?.totalRegistered || 0) >= event.capacity ? 'No Spots Available' :
                          (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) ? 'Registration Closed' :
                          'Register Now'}
                       </Button>
@@ -992,50 +1028,62 @@ const Events: React.FC = () => {
                       <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Team Name</th>
                       <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Team Leader</th>
                       <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Leader Email</th>
-                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Team Members</th>
+                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Team Members & Emails</th>
                       <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd', fontWeight: 600 }}>Registration Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {registrationsDialog.registrations.map((registration, index) => {
-                      console.log('Registration data:', registration); // Debug log
+                      console.log('Full registration object:', JSON.stringify(registration, null, 2)); // Detailed debug log
+                      const members = registration.members || registration.teamMembers || [];
+                      
+                      // Try all possible field combinations
+                      const teamName = registration.teamName || registration.team?.name || 'Individual';
+                      const leaderName = registration.leaderName || 
+                                       registration.leader?.name || 
+                                       registration.teamLeader?.name || 
+                                       registration.user?.name || 
+                                       registration.studentName || 
+                                       registration.name || 
+                                       'N/A';
+                      const leaderEmail = registration.leaderEmail || 
+                                        registration.leader?.email || 
+                                        registration.teamLeader?.email || 
+                                        registration.user?.email || 
+                                        registration.studentEmail || 
+                                        registration.email || 
+                                        'N/A';
+                      
+                      console.log('Extracted data:', { teamName, leaderName, leaderEmail, members });
+                      
                       return (
                         <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '12px' }}>
-                            {registration.teamName || registration.team?.name || 'Individual'}
+                            {teamName}
                           </td>
                           <td style={{ padding: '12px' }}>
-                            {registration.teamLeader?.name || 
-                             registration.leader?.name || 
-                             registration.user?.name || 
-                             registration.studentName || 
-                             'N/A'}
+                            {leaderName}
                           </td>
                           <td style={{ padding: '12px' }}>
-                            {registration.teamLeader?.email || 
-                             registration.leader?.email || 
-                             registration.user?.email || 
-                             registration.studentEmail || 
-                             'N/A'}
+                            {leaderEmail}
                           </td>
-                          <td style={{ padding: '12px', maxWidth: '300px' }}>
-                            {registration.teamMembers?.length > 0 ? (
+                          <td style={{ padding: '12px', maxWidth: '400px' }}>
+                            {members.length > 0 ? (
                               <Box>
-                                {registration.teamMembers.map((member: any, idx: number) => (
-                                  <Typography key={idx} variant="body2" sx={{ mb: 0.5 }}>
-                                    {member.name || member.studentName} ({member.email || member.studentEmail})
-                                  </Typography>
-                                ))}
+                                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                                  Team Members ({members.length}):
+                                </Typography>
+                                {members.map((member: any, idx: number) => {
+                                  const memberName = member.name || 'N/A';
+                                  const memberEmail = member.email || 'N/A';
+                                  return (
+                                    <Typography key={idx} variant="body2" sx={{ mb: 0.5, pl: 1 }}>
+                                      {idx + 1}. {memberName} - {memberEmail}
+                                    </Typography>
+                                  );
+                                })}
                               </Box>
-                            ) : registration.members?.length > 0 ? (
-                              <Box>
-                                {registration.members.map((member: any, idx: number) => (
-                                  <Typography key={idx} variant="body2" sx={{ mb: 0.5 }}>
-                                    {member.name || member.studentName} ({member.email || member.studentEmail})
-                                  </Typography>
-                                ))}
-                              </Box>
-                            ) : 'N/A'}
+                            ) : 'No team members'}
                           </td>
                           <td style={{ padding: '12px' }}>
                             {registration.createdAt ? 

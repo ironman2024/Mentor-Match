@@ -16,6 +16,12 @@ export interface IEvent extends Document {
     teamName?: string;
     leader: mongoose.Types.ObjectId;
     members: mongoose.Types.ObjectId[];
+    memberData?: Array<{
+      name: string;
+      email: string;
+      rollNumber: string;
+    }>;
+    memberEmails?: string[];
     registeredAt: Date;
   }>;
 }
@@ -44,6 +50,12 @@ const eventSchema = new mongoose.Schema({
     teamName: String,
     leader: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    memberData: [{
+      name: String,
+      email: String,
+      rollNumber: String
+    }],
+    memberEmails: [String],
     registeredAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });

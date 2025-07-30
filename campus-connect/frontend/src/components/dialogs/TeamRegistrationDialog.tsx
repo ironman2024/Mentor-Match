@@ -47,11 +47,6 @@ const TeamRegistrationDialog: React.FC<TeamRegistrationDialogProps> = ({
 }) => {
   const [registrationData, setRegistrationData] = useState({
     teamName: '',
-    leader: {
-      name: '',
-      email: '',
-      rollNumber: ''
-    },
     members: [] as TeamMember[]
   });
 
@@ -79,20 +74,23 @@ const TeamRegistrationDialog: React.FC<TeamRegistrationDialogProps> = ({
   };
 
   const isValid = () => {
-    const leaderValid = registrationData.leader.name && 
-                       registrationData.leader.email && 
-                       registrationData.leader.rollNumber;
     const teamNameValid = !isTeamEvent || registrationData.teamName;
-    return leaderValid && teamNameValid;
+    return teamNameValid;
   };
 
   const handleSubmit = async () => {
     try {
-      await onSubmit(registrationData);
-      showNotification('Team registered successfully!', 'success');
-      onClose();
+      // Submit team name and members - backend will handle leader automatically
+      const submitData = {
+        teamName: registrationData.teamName,
+        members: registrationData.members // Send member objects with name, email, rollNumber
+      };
+      await onSubmit(submitData);
+      // Reset form after successful submission
+      setRegistrationData({ teamName: '', members: [] });
+      setNewMember({ name: '', email: '', rollNumber: '' });
     } catch (error) {
-      showNotification('Failed to register team. Please try again.', 'error');
+      console.error('Registration submission error:', error);
     }
   };
 
@@ -117,48 +115,23 @@ const TeamRegistrationDialog: React.FC<TeamRegistrationDialogProps> = ({
             />
           )}
 
-          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-            Team Leader Details
-          </Typography>
-          <Box display="flex" gap={2}>
-            <TextField
-              fullWidth
-              label="Leader Name"
-              value={registrationData.leader.name}
-              onChange={(e) => setRegistrationData(prev => ({
-                ...prev,
-                leader: { ...prev.leader, name: e.target.value }
-              }))}
-              required
-            />
-            <TextField
-              fullWidth
-              label="Leader Email"
-              type="email"
-              value={registrationData.leader.email}
-              onChange={(e) => setRegistrationData(prev => ({
-                ...prev,
-                leader: { ...prev.leader, email: e.target.value }
-              }))}
-              required
-            />
-            <TextField
-              fullWidth
-              label="Roll Number"
-              value={registrationData.leader.rollNumber}
-              onChange={(e) => setRegistrationData(prev => ({
-                ...prev,
-                leader: { ...prev.leader, rollNumber: e.target.value }
-              }))}
-              required
-            />
+          <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, mb: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Team Leader (Auto-filled)
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              You will be automatically registered as the team leader
+            </Typography>
           </Box>
         </Box>
 
         {isTeamEvent && (
           <Box>
             <Typography variant="h6" gutterBottom>
-              Team Members ({registrationData.members.length}/{maxTeamSize - 1})
+              Add Team Members ({registrationData.members.length}/{maxTeamSize - 1})
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+              Add your team members below. You are automatically the team leader.
             </Typography>
             
             <List>
