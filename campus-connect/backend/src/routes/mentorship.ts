@@ -3,10 +3,17 @@ import auth from '../middleware/auth';
 import MentorshipSession from '../models/MentorshipSession';
 import Notification from '../models/Notification';
 import Chat from '../models/Chat';
+import Message from '../models/Message';
 import User, { IUser } from '../models/User';
+import UserAchievement from '../models/UserAchievement';
+import Badge from '../models/Badge';
+import { BadgeService } from '../services/BadgeService';
+import { AchievementTrackingService } from '../services/AchievementTrackingService';
+import LeaderboardService from '../services/LeaderboardService';
 import mongoose, { Document, Types } from 'mongoose';
 import multer from 'multer';
 import path from 'path';
+import { io } from '../index';
 
 // Configure multer for resume uploads
 const storage = multer.diskStorage({
@@ -31,6 +38,16 @@ const upload = multer({
 });
 
 const router = express.Router();
+
+// Test route to verify basic functionality
+router.get('/test', (req, res) => {
+  res.json({ message: 'Mentorship routes are working' });
+});
+
+// Test route with auth
+router.get('/test-auth', auth, (req: any, res) => {
+  res.json({ message: 'Auth is working', user: req.user._id });
+});
 
 // Get mentor dashboard stats
 router.get('/stats', auth, async (req: any, res) => {
@@ -65,7 +82,7 @@ router.get('/requests', auth, async (req: any, res) => {
     const requests = await MentorshipSession.find({
       mentor: req.user._id,
       status: 'pending'
-    }).populate('mentee', 'name avatar email department');
+    }).populate('mentee', 'name avatar email department skills');
 
     console.log('Fetched requests:', requests); // Debug log
     res.json(requests);
@@ -75,62 +92,87 @@ router.get('/requests', auth, async (req: any, res) => {
   }
 });
 
-// Update mentorship request status
-router.patch('/requests/:id', auth, async (req: any, res) => {
+// Minimal test route
+router.patch('/requests/:id', (req: any, res) => {
+  res.json({ success: true, message: 'Route working' });
+});
+
+// Working route with database operations
+router.patch('/requests/:id/update', auth, async (req: any, res) => {
   try {
     const { status } = req.body;
     const sessionId = req.params.id;
 
-    // Validate status
     if (!['accepted', 'rejected'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
 
-    // Find and populate the session
-    const session = await MentorshipSession.findById(sessionId)
-      .populate('mentor', 'name email _id')
-      .populate('mentee', 'name email _id');
-
+    const session = await MentorshipSession.findByIdAndUpdate(
+      sessionId,
+      { status },
+      { new: true }
+    );
+    
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
     }
-
-    // Verify the user is the mentor
-    if (session.mentor._id.toString() !== req.user._id.toString()) {
+    
+    if (session.mentor.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    session.status = status;
-    await session.save();
-
     let chat = null;
+    
+    // Create initial message and notification if accepted
     if (status === 'accepted') {
-      chat = await Chat.create({
-        participants: [session.mentor._id, session.mentee._id],
-        type: 'direct',
-        messages: []
+      // Create initial welcome message from mentor to mentee
+      const domain = session.requestDetails?.domain || 'General';
+      const specificHelp = session.requestDetails?.specificHelp || 'mentorship';
+      
+      const welcomeMessage = await Message.create({
+        sender: session.mentor,
+        recipient: session.mentee,
+        content: `Hi! I've accepted your ${domain} mentorship request. I'm excited to help you with ${specificHelp.toLowerCase()}. Let's schedule our first session soon!`,
+        read: false
+      });
+
+      await welcomeMessage.populate('sender', 'name avatar');
+      chat = { _id: welcomeMessage._id, message: welcomeMessage };
+
+      // Send real-time message via socket.io
+      if (io) {
+        io.to(session.mentee.toString()).emit('new_message', welcomeMessage);
+      }
+
+      // Create notification for mentee
+      await Notification.create({
+        recipient: session.mentee,
+        type: 'mentorship_accepted',
+        title: 'Mentorship Request Accepted!',
+        message: 'Your mentorship request has been accepted. You can now start chatting with your mentor.',
+        read: false
+      });
+    } else {
+      // Create notification for rejection
+      await Notification.create({
+        recipient: session.mentee,
+        type: 'mentorship_rejected',
+        title: 'Mentorship Request Declined',
+        message: 'Your mentorship request has been declined. Don\'t worry, there are many other mentors available!',
+        read: false
       });
     }
-
-    // Create notification
-    await Notification.create({
-      recipient: session.mentee._id,
-      type: status === 'accepted' ? 'mentorship_accepted' : 'mentorship_rejected',
-      title: `Mentorship Request ${status === 'accepted' ? 'Accepted' : 'Declined'}`,
-      message: `Your mentorship request has been ${status}`,
-      read: false
-    });
 
     res.json({
       success: true,
       message: `Request ${status} successfully`,
-      chat
+      chat: chat ? { _id: chat._id } : null,
+      nextStep: status === 'accepted' ? 'chat' : null
     });
 
   } catch (error: any) {
-    console.error('Error updating mentorship request:', error);
     res.status(500).json({
-      message: 'Failed to process mentorship request',
+      message: 'Database error',
       error: error.message
     });
   }
@@ -138,7 +180,7 @@ router.patch('/requests/:id', auth, async (req: any, res) => {
 
 router.post('/request', auth, async (req: any, res) => {
   try {
-    const { mentorId, topic, message } = req.body;
+    const { mentorId, topic, message, domain, projectDescription, specificHelp, timeCommitment, preferredMeetingType } = req.body;
     const menteeId = req.user._id;
 
     // Verify mentor exists
@@ -154,9 +196,18 @@ router.post('/request', auth, async (req: any, res) => {
       topic,
       status: 'pending',
       goals: [],
-      schedule: {
-        startDate: new Date(),
-        frequency: 'weekly'
+      requestDetails: {
+        domain: domain || 'General',
+        projectDescription,
+        specificHelp: specificHelp || message,
+        studentMessage: message,
+        timeCommitment,
+        preferredMeetingType: preferredMeetingType || 'online'
+      },
+      meetingDetails: {
+        scheduledDate: new Date(),
+        duration: 60,
+        meetingType: preferredMeetingType || 'online'
       }
     });
 
@@ -236,6 +287,13 @@ router.patch('/request/:id/status', auth, async (req: any, res) => {
         messages: []
       });
 
+      // Track collaboration achievement for mentor
+      await BadgeService.processUserActivity(session.mentor._id.toString(), {
+        type: 'mentorship_session',
+        value: 1,
+        metadata: { menteeId: session.mentee._id.toString() }
+      });
+
       // Create notification for acceptance
       await Notification.create({
         recipient: session.mentee._id,
@@ -304,11 +362,27 @@ router.post('/rate/:mentorId', auth, async (req: any, res) => {
     
     // Update session with feedback including comment
     session.feedback = {
-      rating,
-      comment: comment || '', // Default to empty string if no comment provided
-      givenAt: new Date()
+      menteeFeedback: {
+        rating,
+        comment: comment || '', // Default to empty string if no comment provided
+        givenAt: new Date()
+      }
     };
     await session.save();
+
+    // Track mentorship achievement for mentor
+    await BadgeService.processUserActivity(mentorId, {
+      type: 'mentorship_session',
+      value: 1,
+      metadata: { sessionId: session._id.toString(), rating }
+    });
+
+    // Process mentorship activity for badge checking
+    await BadgeService.processUserActivity(mentorId, {
+      type: 'mentorship_session',
+      value: 1,
+      metadata: { rating }
+    });
 
     res.json({ 
       message: 'Rating submitted successfully',
@@ -493,6 +567,77 @@ router.get('/mentor/:id', auth, async (req, res) => {
       message: 'Error fetching mentor profile',
       error: error.message 
     });
+  }
+});
+
+// Get mentorship-related badges
+router.get('/badges', auth, async (req: any, res) => {
+  try {
+    const mentorshipBadges = await Badge.find({ category: 'mentorship' }).sort({ rarity: 1 });
+    const userAchievement = await UserAchievement.findOne({ user: req.user._id });
+    
+    const badgesWithProgress = await Promise.all(
+      mentorshipBadges.map(async (badge) => {
+        const earned = userAchievement?.badges.find(b => b.badge.toString() === badge._id.toString());
+        const progress = await BadgeService.getBadgeProgress(req.user._id, badge._id.toString());
+        return {
+          ...badge.toObject(),
+          earned: !!earned,
+          earnedAt: earned?.earnedAt,
+          progress: progress?.progress || 0
+        };
+      })
+    );
+    
+    res.json(badgesWithProgress);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get mentorship leaderboard
+router.get('/leaderboard', auth, async (req: any, res) => {
+  try {
+    const { period = 'all-time', limit = 20 } = req.query;
+    const leaderboard = await LeaderboardService.getLeaderboard(
+      'mentorship',
+      period as string,
+      parseInt(limit as string)
+    );
+    res.json(leaderboard);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get user's mentorship achievements
+router.get('/achievements', auth, async (req: any, res) => {
+  try {
+    const userAchievement = await UserAchievement.findOne({ user: req.user._id })
+      .populate('badges.badge');
+    
+    const mentorshipAchievements = userAchievement?.badges.filter(b => {
+      const badge = b.badge as any;
+      return badge?.category === 'mentorship';
+    }) || [];
+    
+    res.json({
+      achievements: mentorshipAchievements,
+      mentorshipScore: userAchievement?.mentorshipScore || 0,
+      totalPoints: userAchievement?.totalPoints || 0
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get user's mentorship rank
+router.get('/rank', auth, async (req: any, res) => {
+  try {
+    const rank = await LeaderboardService.getUserRank(req.user._id, 'mentorship');
+    res.json(rank || { rank: null, score: 0 });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 });
 

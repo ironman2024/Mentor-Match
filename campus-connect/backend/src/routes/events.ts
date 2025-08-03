@@ -3,6 +3,7 @@ import auth from '../middleware/auth';
 import Event from '../models/Event';
 import User from '../models/User';
 import Notification from '../models/Notification';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -45,146 +46,119 @@ router.post('/', auth, checkEventCreationPermission, async (req: any, res) => {
 // Get all events with registration statistics
 router.get('/', auth, async (req, res) => {
   try {
-    const events = await Event.find()
-      .sort({ date: 1 })
-      .populate('organizer', 'name role')
-      .populate('registrations.leader', 'name email')
-      .populate('registrations.members', 'name email');
+    const events = await Event.find().sort({ date: 1 }).lean();
     
-    // Add registration statistics to each event
     const eventsWithStats = events.map(event => {
-      const totalRegistered = event.registrations.reduce(
-        (acc, reg) => acc + (reg.memberData?.length || reg.members.length) + 1, 0
-      );
+      const registrations = event.registrations || [];
+      const totalRegistered = registrations.length;
       
       return {
-        ...event.toObject(),
-        registered: totalRegistered, // Add this for frontend compatibility
+        ...event,
+        registered: totalRegistered,
         registrationStats: {
           totalRegistered,
           spotsRemaining: Math.max(0, event.capacity - totalRegistered),
-          teamCount: event.registrations.length,
+          teamCount: registrations.length,
           isFull: totalRegistered >= event.capacity,
-          registrationRate: Math.round((totalRegistered / event.capacity) * 10000) / 100
+          registrationRate: event.capacity > 0 ? Math.round((totalRegistered / event.capacity) * 100) : 0
         }
       };
     });
     
     res.json(eventsWithStats);
   } catch (error: any) {
+    console.error('Events error:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
+// Add event registration with transaction support
 router.post('/:eventId/register', auth, async (req: any, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { teamName, members } = req.body;
+    const event = await Event.findById(req.params.eventId).session(session);
+    if (!event) {
+      throw new Error('Event not found');
+    }
 
-    const event = await Event.findById(req.params.eventId);
-    if (!event) return res.status(404).json({ message: 'Event not found' });
+    // Check capacity and duplicates in a single query
+    const registrationStats = await Event.aggregate([
+      { $match: { _id: event._id } },
+      { $project: {
+        isFull: { $gte: [{ $size: '$registrations' }, '$capacity'] },
+        isDuplicate: {
+          $or: [
+            { $in: [req.user._id, '$registrations.leader'] },
+            { $in: [req.user.email, '$registrations.memberEmails'] }
+          ]
+        }
+      }}
+    ]).session(session);
 
-    // Check if user is already registered (prevent duplicate registration)
-    const isAlreadyRegistered = event.registrations.some(reg => 
-      reg.leader.toString() === req.user._id.toString() || 
-      reg.members.some(member => member.toString() === req.user._id.toString())
+    const { isFull, isDuplicate } = registrationStats[0];
+    if (isFull) throw new Error('Event is full');
+    if (isDuplicate) throw new Error('Already registered');
+
+    // Update event atomically with explicit type checking
+    const result = await Event.findByIdAndUpdate(
+      event._id,
+      {
+        $push: {
+          registrations: {
+            teamName,
+            leader: req.user._id,
+            memberData: members,
+            memberEmails: members.map((m: any) => m.email),
+            registeredAt: new Date()
+          }
+        }
+      },
+      { new: true, session }
     );
-    
-    if (isAlreadyRegistered) {
-      return res.status(400).json({ message: 'You are already registered for this event' });
+
+    if (!result) {
+      throw new Error('Failed to update event registration');
     }
 
-    // Handle member data - store member info directly without creating users
-    let memberData = [];
-    if (members && Array.isArray(members)) {
-      memberData = members.filter(member => member && member.name && member.email);
-    }
+    await session.commitTransaction();
 
-    // Check if any team members are already registered by email
-    for (const member of memberData) {
-      const memberAlreadyRegistered = event.registrations.some(reg => {
-        // Check if member email matches any existing registration
-        const memberEmails = reg.memberEmails || [];
-        return memberEmails.includes(member.email);
-      });
-      if (memberAlreadyRegistered) {
-        return res.status(400).json({ 
-          message: `Team member ${member.name} is already registered for this event` 
-        });
+    // Calculate registration stats after confirming result exists
+    const totalRegistered = result.registrations?.length || 0;
+    const spotsRemaining = Math.max(0, event.capacity - totalRegistered);
+
+    res.json({
+      message: 'Registration successful',
+      registrationStats: {
+        totalRegistered,
+        capacity: event.capacity,
+        spotsRemaining
       }
-    }
-
-    // Check if event is full
-    const totalRegistered = event.registrations.reduce(
-      (acc, reg) => acc + (reg.memberData?.length || reg.members.length) + 1, 0
-    );
-    if (totalRegistered >= event.capacity) {
-      return res.status(400).json({ message: 'Event is full' });
-    }
-
-    // Validate team size
-    if (event.isTeamEvent && memberData.length + 1 > event.teamSize) {
-      return res.status(400).json({ 
-        message: `Team size cannot exceed ${event.teamSize} members` 
-      });
-    }
-
-    const registration = {
-      teamName,
-      leader: req.user._id,
-      members: [], // Keep empty for now
-      memberData: memberData, // Store member info directly
-      memberEmails: memberData.map(m => m.email), // For duplicate checking
-      registeredAt: new Date(),
-    };
-
-    event.registrations.push(registration);
-    await event.save();
-
-    // Create notification for event organizer
-    const notification = new Notification({
-      recipient: event.organizer,
-      type: 'event_registration',
-      title: `New Registration: ${event.title}`,
-      message: `${req.user.name} has registered ${
-        event.isTeamEvent ? `team "${registration.teamName}"` : ''
-      } for your event.`,
-      relatedEvent: event._id
-    });
-    
-    await notification.save();
-
-    // Calculate updated registration count
-    const updatedCount = event.registrations.reduce(
-      (acc, reg) => acc + (reg.memberData?.length || reg.members.length) + 1, 0
-    );
-
-    res.status(200).json({ 
-      message: 'Successfully registered for event',
-      registrationCount: updatedCount,
-      capacity: event.capacity,
-      spotsRemaining: event.capacity - updatedCount
     });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    await session.abortTransaction();
+    res.status(400).json({ message: error.message });
+  } finally {
+    session.endSession();
   }
 });
 
 router.get('/:eventId/registrations', auth, async (req: any, res) => {
   try {
     const event = await Event.findById(req.params.eventId)
-      .populate('registrations.leader', 'name email')
-      .populate('registrations.members', 'name email');
+      .populate('registrations.leader', 'name email');
     
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Format registrations for frontend compatibility
     const formattedRegistrations = event.registrations.map((reg: any) => ({
-      teamName: reg.teamName,
+      teamName: reg.teamName || 'N/A',
       leaderName: reg.leader?.name || 'N/A',
       leaderEmail: reg.leader?.email || 'N/A',
-      members: reg.memberData || reg.members || [],
+      members: reg.memberData || [],
       createdAt: reg.registeredAt || new Date(),
       registrationDate: reg.registeredAt || new Date()
     }));
@@ -204,13 +178,11 @@ router.get('/:eventId/stats', auth, async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    const totalRegistered = event.registrations.reduce(
-      (acc, reg) => acc + (reg.memberData?.length || reg.members.length) + 1, 0
-    );
-    
-    const teamCount = event.registrations.length;
+    const registrations = event.registrations || [];
+    const totalRegistered = registrations.length;
+    const teamCount = registrations.length;
     const spotsRemaining = event.capacity - totalRegistered;
-    const registrationRate = (totalRegistered / event.capacity) * 100;
+    const registrationRate = event.capacity > 0 ? (totalRegistered / event.capacity) * 100 : 0;
 
     res.json({
       eventId: event._id,
@@ -238,15 +210,16 @@ router.get('/:eventId/check-registration', auth, async (req: any, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    const isRegistered = event.registrations.some(reg => 
+    const registrations = event.registrations || [];
+    const isRegistered = registrations.some(reg => 
       reg.leader.toString() === req.user._id.toString() || 
-      reg.members.some(member => member.toString() === req.user._id.toString()) ||
+      (reg.members && reg.members.some(member => member.toString() === req.user._id.toString())) ||
       (reg.memberEmails && reg.memberEmails.includes(req.user.email))
     );
 
-    const userRegistration = event.registrations.find(reg => 
+    const userRegistration = registrations.find(reg => 
       reg.leader.toString() === req.user._id.toString() || 
-      reg.members.some(member => member.toString() === req.user._id.toString()) ||
+      (reg.members && reg.members.some(member => member.toString() === req.user._id.toString())) ||
       (reg.memberEmails && reg.memberEmails.includes(req.user.email))
     );
 

@@ -42,11 +42,43 @@ export interface IUser extends Document {
     url?: string;
     startDate: Date;
     endDate?: Date;
+    images?: string[];
+    collaborators?: mongoose.Schema.Types.ObjectId[];
+    status: 'completed' | 'ongoing' | 'planned';
+    visibility: 'public' | 'private' | 'team-only';
   }[];
+  portfolio: {
+    showcaseProjects: mongoose.Schema.Types.ObjectId[];
+    certifications: {
+      name: string;
+      issuer: string;
+      credentialId?: string;
+      issueDate: Date;
+      expiryDate?: Date;
+      verificationUrl?: string;
+    }[];
+    testimonials: {
+      from: mongoose.Schema.Types.ObjectId;
+      content: string;
+      relationship: 'mentor' | 'teammate' | 'mentee' | 'peer';
+      date: Date;
+      verified: boolean;
+    }[];
+  };
   reputation: number;
   badges: string[];
   mentorshipAvailability?: boolean;
-  areasOfExpertise: string[];
+  areasOfExpertise: {
+    name: string;
+    level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+    yearsOfExperience: number;
+    certifications?: string[];
+    endorsements: {
+      user: mongoose.Schema.Types.ObjectId;
+      comment: string;
+      date: Date;
+    }[];
+  }[];
   comparePassword(candidatePassword: string): Promise<boolean>;
   mentorRating: number;
   totalRatings: number;
@@ -119,12 +151,44 @@ const userSchema = new mongoose.Schema({
     technologies: [String],
     url: String,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
+    images: [String],
+    collaborators: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    status: { type: String, enum: ['completed', 'ongoing', 'planned'], default: 'ongoing' },
+    visibility: { type: String, enum: ['public', 'private', 'team-only'], default: 'public' }
   }],
+  portfolio: {
+    showcaseProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
+    certifications: [{
+      name: String,
+      issuer: String,
+      credentialId: String,
+      issueDate: Date,
+      expiryDate: Date,
+      verificationUrl: String
+    }],
+    testimonials: [{
+      from: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      content: String,
+      relationship: { type: String, enum: ['mentor', 'teammate', 'mentee', 'peer'] },
+      date: { type: Date, default: Date.now },
+      verified: { type: Boolean, default: false }
+    }]
+  },
   reputation: { type: Number, default: 0 },
   badges: [String],
   mentorshipAvailability: Boolean,
-  areasOfExpertise: [String],
+  areasOfExpertise: [{
+    name: { type: String, required: true },
+    level: { type: String, enum: ['beginner', 'intermediate', 'advanced', 'expert'], default: 'intermediate' },
+    yearsOfExperience: { type: Number, default: 0 },
+    certifications: [String],
+    endorsements: [{
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      comment: String,
+      date: { type: Date, default: Date.now }
+    }]
+  }],
   mentorRating: { type: Number, default: 0 },
   totalRatings: { type: Number, default: 0 },
   messageCount: { type: Number, default: 0 },
@@ -146,6 +210,15 @@ const userSchema = new mongoose.Schema({
       weekends: Boolean,
       timeSlots: [String]
     }
+  },
+  teamStats: {
+    teamsJoined: { type: Number, default: 0 },
+    teamsLed: { type: Number, default: 0 },
+    hackathonWins: { type: Number, default: 0 },
+    competitionWins: { type: Number, default: 0 },
+    perfectTeamRatings: { type: Number, default: 0 },
+    averageTeamRating: { type: Number, default: 0 },
+    totalTeamRatings: { type: Number, default: 0 }
   }
 }, { timestamps: true });
 

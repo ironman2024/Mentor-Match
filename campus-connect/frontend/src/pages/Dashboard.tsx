@@ -28,6 +28,7 @@ import {
   TextField,
   Skeleton
 } from '@mui/material';
+import UserAvatar from '../components/common/UserAvatar';
 import {
   Assignment as AssignmentIcon,
   Group as GroupIcon,
@@ -158,48 +159,61 @@ const Dashboard: React.FC = () => {
   };
 
   const handleLike = async (postId: string) => {
-    try {
-      if (likedPosts.has(postId)) {
-        await axios.delete(`http://localhost:5002/api/posts/${postId}/like`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        setLikedPosts(prev => {
-          const next = new Set(prev);
-          next.delete(postId);
-          return next;
-        });
-      } else {
-        await axios.post(`http://localhost:5002/api/posts/${postId}/like`, {}, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        setLikedPosts(prev => new Set(prev).add(postId));
-      }
-      // Refresh posts to get updated like count
-      fetchPosts();
-    } catch (error) {
-      console.error('Error handling like:', error);
+    // Client-side like simulation until backend endpoints are implemented
+    const isCurrentlyLiked = likedPosts.has(postId);
+    
+    if (isCurrentlyLiked) {
+      setLikedPosts(prev => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
+    } else {
+      setLikedPosts(prev => new Set(prev).add(postId));
     }
+
+    // Update posts state to reflect like changes
+    setPosts(prevPosts => 
+      prevPosts.map(post => {
+        if (post._id === postId) {
+          const currentLikes = post.likes || [];
+          const updatedLikes = isCurrentlyLiked 
+            ? currentLikes.filter((like: any) => like.user !== user?._id)
+            : [...currentLikes, { user: user?._id, _id: Date.now().toString() }];
+          return { ...post, likes: updatedLikes };
+        }
+        return post;
+      })
+    );
   };
 
   const handleComment = async (postId: string) => {
-    try {
-      await axios.post(`http://localhost:5002/api/posts/${postId}/comment`, 
-        { content: comment },
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+    if (!comment.trim()) return;
+    
+    // Client-side comment simulation until backend endpoints are implemented
+    const newComment = {
+      _id: Date.now().toString(),
+      content: comment,
+      author: {
+        _id: user?._id,
+        name: user?.name,
+        avatar: user?.avatar
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    // Update posts state to add the new comment
+    setPosts(prevPosts => 
+      prevPosts.map(post => {
+        if (post._id === postId) {
+          const updatedComments = [...(post.comments || []), newComment];
+          return { ...post, comments: updatedComments };
         }
-      );
-      setComment('');
-      fetchPosts();
-    } catch (error) {
-      console.error('Error posting comment:', error);
-    }
+        return post;
+      })
+    );
+
+    setComment('');
   };
 
   const stats = [
@@ -303,11 +317,10 @@ const Dashboard: React.FC = () => {
               background: 'linear-gradient(135deg, #585E6C 0%, #2C3E50 100%)'
             }} />
             <Box sx={{ p: 2, pb: 3, textAlign: 'center', position: 'relative' }}>
-              <Avatar
-                src={user?.avatar}
+              <UserAvatar
+                user={user}
+                size={72}
                 sx={{
-                  width: 72,
-                  height: 72,
                   border: '4px solid white',
                   mx: 'auto',
                   mt: '-36px',
@@ -517,7 +530,7 @@ const Dashboard: React.FC = () => {
           {/* Create Post Card */}
           <Paper sx={{ borderRadius: 2, p: 2, mb: 3 }}>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Avatar src={user?.avatar} sx={{ width: 48, height: 48 }} />
+              <UserAvatar user={user} size={48} />
               <Button
                 fullWidth
                 variant="outlined"
@@ -600,12 +613,11 @@ const Dashboard: React.FC = () => {
               <Paper key={post._id} sx={{ borderRadius: 2, mb: 2 }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Avatar
-                      src={post.author?.avatar}
-                      sx={{ width: 48, height: 48, mr: 2 }}
-                    >
-                      {post.author?.name?.[0]}
-                    </Avatar>
+                    <UserAvatar
+                      user={post.author}
+                      size={48}
+                      sx={{ mr: 2 }}
+                    />
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="subtitle1" fontWeight="bold">
                         {post.author?.name}
@@ -700,12 +712,11 @@ const Dashboard: React.FC = () => {
                       {selectedPost?.comments?.map((comment: any) => (
                         <Box key={comment._id} sx={{ mb: 2, py: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <Avatar
-                              src={comment.author?.avatar}
-                              sx={{ width: 32, height: 32, mr: 1 }}
-                            >
-                              {comment.author?.name?.[0]}
-                            </Avatar>
+                            <UserAvatar
+                              user={comment.author}
+                              size={32}
+                              sx={{ mr: 1 }}
+                            />
                             <Box>
                               <Typography variant="subtitle2">
                                 {comment.author?.name}

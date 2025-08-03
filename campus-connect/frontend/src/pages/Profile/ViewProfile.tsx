@@ -3,7 +3,6 @@ import {
   Box,
   Paper,
   Typography,
-  Avatar,
   Button,
   Chip,
   Grid,
@@ -20,9 +19,12 @@ import {
   Groups as CommunitiesIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import AvatarUpload from '../../components/profile/AvatarUpload';
 
 const ViewProfile: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f3f2ef', minHeight: '100vh' }}>
@@ -32,18 +34,15 @@ const ViewProfile: React.FC = () => {
         
         {/* Profile Info */}
         <Box sx={{ p: 3, mt: -8 }}>
-          <Avatar
-            sx={{
-              width: 152,
-              height: 152,
-              border: '4px solid white',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-            }}
+          <AvatarUpload
+            currentAvatar={user?.avatar}
+            size={152}
+            editable={true}
           />
           <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
             <Box>
-              <Typography variant="h4" fontWeight="bold">John Doe</Typography>
-              <Typography color="textSecondary">Computer Science Student @ University</Typography>
+              <Typography variant="h4" fontWeight="bold">{user?.name || 'User Name'}</Typography>
+              <Typography color="textSecondary">{user?.bio || 'Computer Science Student @ University'}</Typography>
               <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
                 Mumbai, Maharashtra, India
               </Typography>

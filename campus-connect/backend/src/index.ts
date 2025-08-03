@@ -1,3 +1,4 @@
+/// <reference path="./types/socket.d.ts" />
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -14,9 +15,18 @@ import imageRoutes from './routes/images';
 import profileRoutes from './routes/profile'; // Import the profile route
 import messageRoutes from './routes/messages';
 import mentorshipRoutes from './routes/mentorship';
-import { Server } from 'socket.io';
+import mentorAvailabilityRoutes from './routes/mentorAvailability';
+import mentorReviewsRoutes from './routes/mentorReviews';
+import sessionSchedulingRoutes from './routes/sessionScheduling';
+import mentorshipEnhancedRoutes from './routes/mentorshipEnhanced';
+const socketIo = require('socket.io');
+const { Server } = socketIo;
 import http from 'http';
 import projectRoutes from './routes/projects';
+import badgeRoutes from './routes/badges';
+import SchedulerService from './services/SchedulerService';
+import jwt from 'jsonwebtoken';
+import User from './models/User';
 
 dotenv.config();
 
@@ -61,11 +71,15 @@ if (!process.env.JWT_SECRET) {
 // Create uploads directories if they don't exist
 const uploadsDir = path.join(__dirname, '../uploads/images');
 const resumesDir = path.join(__dirname, '../uploads/resumes');
+const avatarsDir = path.join(__dirname, '../uploads/avatars');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 if (!fs.existsSync(resumesDir)) {
   fs.mkdirSync(resumesDir, { recursive: true });
+}
+if (!fs.existsSync(avatarsDir)) {
+  fs.mkdirSync(avatarsDir, { recursive: true });
 }
 
 // Serve static files from uploads directory
@@ -81,7 +95,12 @@ app.use('/api/images', imageRoutes);
 app.use('/api/profile', profileRoutes); // Mount the profile route
 app.use('/api/messages', messageRoutes); // Add messages route
 app.use('/api/mentorship', mentorshipRoutes);
+app.use('/api/mentor-availability', mentorAvailabilityRoutes);
+app.use('/api/mentor-reviews', mentorReviewsRoutes);
+app.use('/api/session-scheduling', sessionSchedulingRoutes);
+app.use('/api/mentorship-enhanced', mentorshipEnhancedRoutes);
 app.use('/api/projects', projectRoutes); // Add this line
+app.use('/api/badges', badgeRoutes);
 
 app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Welcome to Campus Connect API' });
@@ -117,7 +136,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   }
 });
 
-export let io: Server; // Export io instance
+export let io: any; // Export io instance
 
 const initSocketIO = (server: http.Server) => {
   io = new Server(server, {
@@ -128,8 +147,66 @@ const initSocketIO = (server: http.Server) => {
     }
   });
 
-  io.on('connection', socket => {
-    console.log('Client connected:', socket.id);
+  // Socket authentication middleware
+  io.use(async (socket: any, next: (err?: Error) => void) => {
+    try {
+      const token = socket.handshake.auth.token;
+      if (!token) {
+        return next(new Error('Authentication error'));
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+      const user = await User.findById(decoded.userId);
+      if (!user) {
+        return next(new Error('User not found'));
+      }
+
+      socket.userId = user._id.toString();
+      socket.user = user;
+      next();
+    } catch (error) {
+      next(new Error('Authentication error'));
+    }
+  });
+
+  io.on('connection', (socket: any) => {
+    console.log('Client connected:', socket.id, 'User:', socket.userId);
+    
+    // Join user to their own room for private messaging
+    if (socket.userId) {
+      socket.join(socket.userId);
+    }
+    
+    socket.on('join', (data: { userId: string }) => {
+      socket.join(data.userId);
+      console.log(`User ${data.userId} joined room`);
+    });
+
+    // Handle sending messages
+    socket.on('send_message', (data: { recipientId: string; message: any }) => {
+      console.log('Message sent:', data);
+      // Send to recipient
+      socket.to(data.recipientId).emit('new_message', data.message);
+      // Also send to sender for confirmation
+      socket.emit('message_sent', data.message);
+    });
+
+    // Handle typing indicators
+    socket.on('typing', (data: { recipientId: string; isTyping: boolean }) => {
+      if (socket.userId) {
+        socket.to(data.recipientId).emit('user_typing', {
+          userId: socket.userId,
+          isTyping: data.isTyping
+        });
+      }
+    });
+
+    // Handle message deletion
+    socket.on('message_deleted', (data: { messageId: string; recipientId: string }) => {
+      socket.to(data.recipientId).emit('message_deleted', {
+        messageId: data.messageId
+      });
+    });
     
     socket.on('new_project', (project: any) => {
       io.emit('project_update', project);
@@ -146,6 +223,9 @@ const initSocketIO = (server: http.Server) => {
 const startServer = async () => {
   try {
     await connectDB();
+    
+    // Initialize scheduler for badges and leaderboards
+    SchedulerService.init();
     
     // Remove the findAvailablePort call and use PORT directly
     const server = app.listen(PORT, () => {

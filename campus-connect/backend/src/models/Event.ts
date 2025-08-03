@@ -1,4 +1,4 @@
-import mongoose, { Document } from 'mongoose';
+import mongoose, { Document, Schema, model } from 'mongoose';
 
 export interface IEvent extends Document {
   title: string;
@@ -8,28 +8,24 @@ export interface IEvent extends Document {
   location: string;
   type: 'hackathon' | 'workshop' | 'seminar' | 'competition';
   capacity: number;
-  registeredParticipants: mongoose.Types.ObjectId[];
   status: 'upcoming' | 'ongoing' | 'completed';
   isTeamEvent: boolean;
   teamSize: number;
+  requiredSkills: string[];
   registrations: Array<{
     teamName?: string;
     leader: mongoose.Types.ObjectId;
     members: mongoose.Types.ObjectId[];
-    memberData?: Array<{
-      name: string;
-      email: string;
-      rollNumber: string;
-    }>;
+    memberData?: Array<{ name: string; email: string; }>;
     memberEmails?: string[];
     registeredAt: Date;
   }>;
 }
 
-const eventSchema = new mongoose.Schema({
+const eventSchema = new Schema<IEvent>({
   title: { type: String, required: true },
   description: { type: String, required: true },
-  organizer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  organizer: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   date: { type: Date, required: true },
   location: { type: String, required: true },
   type: {
@@ -38,7 +34,6 @@ const eventSchema = new mongoose.Schema({
     required: true
   },
   capacity: { type: Number, required: true },
-  registeredParticipants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   status: {
     type: String,
     enum: ['upcoming', 'ongoing', 'completed'],
@@ -46,18 +41,15 @@ const eventSchema = new mongoose.Schema({
   },
   isTeamEvent: { type: Boolean, default: false },
   teamSize: { type: Number, default: 1 },
+  requiredSkills: [String],
   registrations: [{
     teamName: String,
-    leader: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    memberData: [{
-      name: String,
-      email: String,
-      rollNumber: String
-    }],
+    leader: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    members: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    memberData: [{ name: String, email: String }],
     memberEmails: [String],
     registeredAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
 
-export default mongoose.model<IEvent>('Event', eventSchema);
+export default model<IEvent>('Event', eventSchema);

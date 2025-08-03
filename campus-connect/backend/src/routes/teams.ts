@@ -2,6 +2,7 @@ import express from 'express';
 import auth from '../middleware/auth';
 import User from '../models/User';
 import Project from '../models/Project';
+import { TeamService } from '../services/TeamService';
 
 const router = express.Router();
 
@@ -68,6 +69,27 @@ router.get('/suggest-mentors', auth, async (req: any, res) => {
     .limit(5);
 
     res.json(mentors);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Add new routes for team formation
+router.post('/match', auth, async (req: any, res) => {
+  try {
+    const matches = await TeamService.matchTeamMembers(req.body);
+    res.json(matches);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/compatibility/:teamId', auth, async (req: any, res) => {
+  try {
+    const compatibility = await TeamService.calculateTeamCompatibility(
+      req.params.teamId
+    );
+    res.json(compatibility);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

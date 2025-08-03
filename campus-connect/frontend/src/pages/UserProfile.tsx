@@ -7,7 +7,6 @@ import {
   Tabs,
   Tab,
   Button,
-  Avatar,
   Chip,
   List,
   ListItem,
@@ -27,6 +26,7 @@ import axios from 'axios';
 import PostFeed from '../components/posts/PostFeed';
 import EditProfileDialog from '../components/dialogs/EditProfileDialog';
 import MessageDialog from '../components/dialogs/MessageDialog';
+import UserAvatar from '../components/common/UserAvatar';
 import { useAuth } from '../contexts/AuthContext';
 
 interface TabPanelProps {
@@ -71,9 +71,9 @@ const UserProfile: React.FC = () => {
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box display="flex" justifyContent="space-between" alignItems="start">
           <Box display="flex" gap={3}>
-            <Avatar
-              src={profile?.user?.avatar}
-              sx={{ width: 120, height: 120 }}
+            <UserAvatar
+              user={profile?.user}
+              size={120}
             />
             <Box>
               <Typography variant="h4">{profile?.user?.name}</Typography>

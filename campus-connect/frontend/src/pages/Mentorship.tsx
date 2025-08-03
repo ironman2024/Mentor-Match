@@ -10,6 +10,9 @@ import { Search as SearchIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import MentorshipRequestPreviewDialog from '../components/dialogs/MentorshipRequestPreviewDialog';
+import AchievementSection from '../components/mentorship/AchievementSection';
+import LeaderboardSection from '../components/mentorship/LeaderboardSection';
+import BadgeSection from '../components/mentorship/BadgeSection';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 
@@ -56,6 +59,13 @@ const Mentorship: React.FC = () => {
   const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null);
   const [openRequest, setOpenRequest] = useState(false);
   const [requestMessage, setRequestMessage] = useState('');
+  const [requestDetails, setRequestDetails] = useState({
+    domain: '',
+    projectDescription: '',
+    specificHelp: '',
+    timeCommitment: '',
+    preferredMeetingType: 'online'
+  });
   const [filters, setFilters] = useState({
     role: 'all',
     department: '',
@@ -116,18 +126,21 @@ const Mentorship: React.FC = () => {
   };
 
   const handleSubmitRequest = async () => {
-    if (!selectedMentor || !requestMessage.trim()) return;
+    if (!selectedMentor || !requestMessage.trim() || !requestDetails.domain || !requestDetails.specificHelp) {
+      enqueueSnackbar('Please fill in all required fields', { variant: 'error' });
+      return;
+    }
 
     try {
       const requestData = {
         mentorId: selectedMentor._id,
-        topic: 'Mentorship Request',
+        topic: `${requestDetails.domain} Mentorship`,
         message: requestMessage.trim(),
-        details: {
-          mentor: selectedMentor.name,
-          department: selectedMentor.department,
-          studentMessage: requestMessage.trim()
-        }
+        domain: requestDetails.domain,
+        projectDescription: requestDetails.projectDescription,
+        specificHelp: requestDetails.specificHelp,
+        timeCommitment: requestDetails.timeCommitment,
+        preferredMeetingType: requestDetails.preferredMeetingType
       };
 
       const response = await axios.post(
@@ -146,6 +159,13 @@ const Mentorship: React.FC = () => {
         setOpenRequest(false);
         setSelectedMentor(null);
         setRequestMessage('');
+        setRequestDetails({
+          domain: '',
+          projectDescription: '',
+          specificHelp: '',
+          timeCommitment: '',
+          preferredMeetingType: 'online'
+        });
       }
     } catch (error) {
       console.error('Error details:', error);
@@ -161,7 +181,7 @@ const Mentorship: React.FC = () => {
   const handleRequestAction = async (requestId: string, action: 'accepted' | 'rejected') => {
     try {
       const response = await axios.patch(
-        `http://localhost:5002/api/mentorship/requests/${requestId}`,
+        `http://localhost:5002/api/mentorship/requests/${requestId}/update`,
         { status: action },
         {
           headers: {
@@ -175,13 +195,14 @@ const Mentorship: React.FC = () => {
         setPreviewOpen(false);
         await fetchPendingRequests();
 
-        const message = action === 'accepted' ? 'Request accepted successfully' : 'Request declined';
-        enqueueSnackbar(message, { 
-          variant: action === 'accepted' ? 'success' : 'info' 
-        });
-
-        if (action === 'accepted' && response.data.chat) {
+        if (action === 'accepted') {
+          enqueueSnackbar('Request accepted! A chat has been created with your mentee.', { 
+            variant: 'success' 
+          });
+          // Navigate to inbox/chat
           navigate('/inbox');
+        } else {
+          enqueueSnackbar('Request declined', { variant: 'info' });
         }
       }
     } catch (error: any) {
@@ -403,6 +424,19 @@ const Mentorship: React.FC = () => {
           </Grid>
         </Paper>
 
+        {/* Gamification Section */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={4}>
+            <AchievementSection />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <LeaderboardSection />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <BadgeSection />
+          </Grid>
+        </Grid>
+
         {/* Mentors Grid */}
         <Grid container spacing={3}>
           {filteredMentors.map((mentor) => (
@@ -584,30 +618,95 @@ const Mentorship: React.FC = () => {
           Request Mentorship from {selectedMentor?.name}
         </DialogTitle>
         <DialogContent>
-          <Typography variant="subtitle1" sx={{ color: '#596273', mb: 2 }}>
-            Send a message explaining why you'd like to connect with {selectedMentor?.name} and what you hope to learn.
+          <Typography variant="subtitle1" sx={{ color: '#596273', mb: 3 }}>
+            Please provide detailed information about your mentorship needs
           </Typography>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="Your message"
-            value={requestMessage}
-            onChange={(e) => setRequestMessage(e.target.value)}
-            placeholder="Introduce yourself and describe your learning goals..."
-            sx={{ 
-              mt: 2,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '12px',
-                '&:hover fieldset': {
-                  borderColor: '#585E6C',
-                },
-              },
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: '#B5BBC9',
-              }
-            }}
-          />
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Domain/Field</InputLabel>
+                <Select
+                  value={requestDetails.domain}
+                  label="Domain/Field"
+                  onChange={(e) => setRequestDetails(prev => ({ ...prev, domain: e.target.value }))}
+                >
+                  <MenuItem value="Web Development">Web Development</MenuItem>
+                  <MenuItem value="Mobile Development">Mobile Development</MenuItem>
+                  <MenuItem value="Data Science">Data Science</MenuItem>
+                  <MenuItem value="Machine Learning">Machine Learning</MenuItem>
+                  <MenuItem value="DevOps">DevOps</MenuItem>
+                  <MenuItem value="UI/UX Design">UI/UX Design</MenuItem>
+                  <MenuItem value="Career Guidance">Career Guidance</MenuItem>
+                  <MenuItem value="Research">Research</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Preferred Meeting Type</InputLabel>
+                <Select
+                  value={requestDetails.preferredMeetingType}
+                  label="Preferred Meeting Type"
+                  onChange={(e) => setRequestDetails(prev => ({ ...prev, preferredMeetingType: e.target.value }))}
+                >
+                  <MenuItem value="online">Online</MenuItem>
+                  <MenuItem value="offline">In-Person</MenuItem>
+                  <MenuItem value="both">Both</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="What specific help do you need?"
+                value={requestDetails.specificHelp}
+                onChange={(e) => setRequestDetails(prev => ({ ...prev, specificHelp: e.target.value }))}
+                placeholder="e.g., Code review, career advice, project guidance..."
+                multiline
+                rows={2}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Project Description (Optional)"
+                value={requestDetails.projectDescription}
+                onChange={(e) => setRequestDetails(prev => ({ ...prev, projectDescription: e.target.value }))}
+                placeholder="Describe your project or what you're working on..."
+                multiline
+                rows={3}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Time Commitment (Optional)"
+                value={requestDetails.timeCommitment}
+                onChange={(e) => setRequestDetails(prev => ({ ...prev, timeCommitment: e.target.value }))}
+                placeholder="e.g., 1 hour per week, one-time session..."
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                multiline
+                rows={4}
+                label="Personal Message"
+                value={requestMessage}
+                onChange={(e) => setRequestMessage(e.target.value)}
+                placeholder="Introduce yourself and explain why you'd like to connect with this mentor..."
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 2 }}>
           <Button 

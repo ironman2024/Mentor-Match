@@ -20,16 +20,24 @@ interface Organizer {
 }
 
 interface Event {
-  id: string;
+  _id: string;
   title: string;
   description: string;
   date: string;
   location: string;
   type: 'hackathon' | 'workshop' | 'seminar' | 'competition';
-  organizer: string | Organizer; // Updated to handle both string and object
+  organizer: string | Organizer;
   image?: string;
   capacity: number;
   registered: number;
+  registrations?: any[];
+  registrationStats?: {
+    totalRegistered: number;
+    spotsRemaining: number;
+    teamCount: number;
+    isFull: boolean;
+    registrationRate: number;
+  };
 }
 
 const CalendarComponent: React.FC = () => {
@@ -63,7 +71,12 @@ const CalendarComponent: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get('http://localhost:5002/api/events');
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5002/api/events', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       console.log('Fetched events:', response.data);
       setEvents(response.data);
       setLoading(false);
@@ -124,7 +137,7 @@ const CalendarComponent: React.FC = () => {
     const organizerName = getOrganizerName(event.organizer);
     
     return {
-      id: `${event.title}-${formattedDate}-${index}`,
+      id: event._id || `${event.title}-${formattedDate}-${index}`,
       title: event.title,
       start: formattedDate,
       end: formattedDate,
@@ -136,7 +149,7 @@ const CalendarComponent: React.FC = () => {
         location: event.location,
         type: event.type,
         capacity: event.capacity,
-        registered: event.registrations.length,
+        registered: event.registrationStats?.totalRegistered || event.registered || 0,
         organizer: organizerName, // Use the extracted name string
         date: event.date,
         image: event.image || 'https://tse3.mm.bing.net/th?id=OIP.SiVeFrZjOhdaQmcd5NI-CQHaEK&pid=Api&P=0&h=180',

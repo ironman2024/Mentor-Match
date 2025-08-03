@@ -40,6 +40,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useSnackbar } from 'notistack';
+import AvatarUpload from '../components/profile/AvatarUpload';
 
 const Profile: React.FC = () => {
   const { userId } = useParams();
@@ -262,16 +263,16 @@ const Profile: React.FC = () => {
             {/* Basic Information */}
             <Grid item xs={12} md={4}>
               <Box display="flex" flexDirection="column" alignItems="center">
-                <Avatar
-                  sx={{ 
-                    width: 120, 
-                    height: 120, 
-                    mb: 2,
-                    border: '2px solid #E74C3C'
+                <AvatarUpload
+                  currentAvatar={user?.avatar ? `http://localhost:5002${user.avatar}` : undefined}
+                  size={120}
+                  editable={isOwnProfile}
+                  onAvatarUpdate={(newUrl) => {
+                    // Update profile state if needed
+                    console.log('Avatar updated:', newUrl);
                   }}
-                  src={user?.avatar}
                 />
-                <Typography variant="h5" sx={{ color: '#585E6C', fontWeight: 600 }}>
+                <Typography variant="h5" sx={{ color: '#585E6C', fontWeight: 600, mt: 2 }}>
                   {profile.name}
                 </Typography>
                 <Typography sx={{ color: '#B5BBC9', mt: 1 }}>

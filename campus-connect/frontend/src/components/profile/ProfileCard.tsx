@@ -3,13 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
-  Avatar,
   Typography,
   Box,
   Divider,
   Button
 } from '@mui/material';
-import { Person as PersonIcon } from '@mui/icons-material';
+import UserAvatar from '../common/UserAvatar';
 
 interface ProfileCardProps {
   user: any; // Replace with proper User type
@@ -32,17 +31,14 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
     }}>
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
         <Box display="flex" flexDirection="column" alignItems="center">
-          <Avatar
-            src={user?.avatar ? `http://localhost:5002${user.avatar}` : undefined}
+          <UserAvatar
+            user={user}
+            size={80}
             sx={{ 
-              width: 80, 
-              height: 80, 
               mb: 2,
               border: '2px solid #E74C3C'
             }}
-          >
-            {user?.name?.[0] || <PersonIcon />}
-          </Avatar>
+          />
           <Typography variant="h6" sx={{ color: '#585E6C', fontWeight: 600 }}>
             {user?.name}
           </Typography>

@@ -7,8 +7,6 @@ import {
   Button,
   Grid,
   Chip,
-  Avatar,
-  IconButton,
   Snackbar,
   Alert,
   Select,
@@ -16,8 +14,9 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
-import { Save as SaveIcon, Add as AddIcon, PhotoCamera } from '@mui/icons-material';
+import { Save as SaveIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import AvatarUpload from '../components/profile/AvatarUpload';
 import axios from 'axios';
 
 const EditProfile: React.FC = () => {
@@ -125,43 +124,12 @@ const EditProfile: React.FC = () => {
     }
   };
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const formData = new FormData();
-      formData.append('avatar', file);
-
-      try {
-        const response = await axios.post(
-          'http://localhost:5002/api/profile/avatar',
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            }
-          }
-        );
-
-        if (response.data.url) {
-          setProfile(prev => ({
-            ...prev,
-            avatar: response.data.url
-          }));
-          setNotification({
-            open: true,
-            message: 'Avatar uploaded successfully!',
-            type: 'success'
-          });
-        }
-      } catch (error) {
-        console.error('Error uploading avatar:', error);
-        setNotification({
-          open: true,
-          message: 'Error uploading avatar. Please try again.',
-          type: 'error'
-        });
-      }
-    }
+  const handleAvatarUpdate = (newAvatarUrl: string) => {
+    setProfile(prev => ({
+      ...prev,
+      avatar: newAvatarUrl
+    }));
+    showNotification('Avatar updated successfully!', 'success');
   };
 
   const getAvailableYears = () => {
@@ -218,42 +186,12 @@ const EditProfile: React.FC = () => {
           
           <Grid container spacing={3}>
             <Grid item xs={12} display="flex" justifyContent="center">
-              <Box position="relative">
-                <Avatar
-                  src={profile.avatar ? `http://localhost:5002${profile.avatar}` : undefined}
-                  sx={{ 
-                    width: 120, 
-                    height: 120,
-                    border: '2px solid #E74C3C'
-                  }}
-                />
-                <input
-                  accept="image/*"
-                  type="file"
-                  hidden
-                  id="avatar-upload"
-                  onChange={handleAvatarUpload}
-                />
-                <label htmlFor="avatar-upload">
-                  <IconButton
-                    component="span"
-                    sx={{
-                      position: 'absolute',
-                      bottom: 0,
-                      right: 0,
-                      bgcolor: '#585E6C',
-                      color: 'white',
-                      '&:hover': { 
-                        bgcolor: '#474D59',
-                        transform: 'translateY(-2px)',
-                        transition: 'all 0.2s'
-                      }
-                    }}
-                  >
-                    <PhotoCamera />
-                  </IconButton>
-                </label>
-              </Box>
+              <AvatarUpload
+                currentAvatar={profile.avatar}
+                size={120}
+                onAvatarUpdate={handleAvatarUpdate}
+                editable={true}
+              />
             </Grid>
 
             <Grid item xs={12}>

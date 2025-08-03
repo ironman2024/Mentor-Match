@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationBadge from './notifications/NotificationBadge';
 import SchoolIcon from '@mui/icons-material/School';
+import UserAvatar from './common/UserAvatar';
 
 interface NavbarProps {
   onMenuClick?: () => void;
@@ -49,7 +50,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
         }}>
           Campus Connect
         </Typography>
-        <Box display="flex" alignItems="center">
+        <Box display="flex" alignItems="center" gap={2}>
           {isAuthenticated && <NotificationBadge />}
           {!isAuthenticated ? (
             <>
@@ -61,9 +62,25 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
               </Button>
             </>
           ) : (
-            <Button color="inherit" onClick={logout}>
-              Logout
-            </Button>
+            <>
+              <UserAvatar 
+                user={user}
+                size={32}
+                component={Link}
+                to={`/profile/${user?._id}`}
+                sx={{ 
+                  cursor: 'pointer',
+                  textDecoration: 'none',
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                    transition: 'transform 0.2s ease'
+                  }
+                }}
+              />
+              <Button color="inherit" onClick={logout}>
+                Logout
+              </Button>
+            </>
           )}
         </Box>
       </Toolbar>

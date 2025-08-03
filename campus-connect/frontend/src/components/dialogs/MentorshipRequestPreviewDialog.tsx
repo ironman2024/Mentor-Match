@@ -24,7 +24,15 @@ interface RequestPreviewProps {
       skills?: string[];
     };
     topic: string;
-    message: string;
+    message?: string;
+    requestDetails?: {
+      domain: string;
+      projectDescription?: string;
+      specificHelp: string;
+      studentMessage: string;
+      timeCommitment?: string;
+      preferredMeetingType?: string;
+    };
     createdAt: string;
   } | null;
   onAccept: (requestId: string) => void;
@@ -90,14 +98,80 @@ const MentorshipRequestPreviewDialog: React.FC<RequestPreviewProps> = ({
           <Divider sx={{ my: 2, borderColor: '#B5BBC9' }} />
 
           <Typography variant="subtitle1" gutterBottom sx={{ color: '#585E6C', fontWeight: 600 }}>
-            Topic
+            Domain/Field
           </Typography>
-          <Typography paragraph sx={{ mb: 2, color: '#585E6C' }}>
-            {request.topic}
-          </Typography>
+          <Chip 
+            label={request.requestDetails?.domain || 'General'}
+            sx={{ mb: 2, bgcolor: '#585E6C', color: 'white' }}
+          />
+
+          {request.requestDetails?.specificHelp && (
+            <>
+              <Typography variant="subtitle1" gutterBottom sx={{ color: '#585E6C', fontWeight: 600 }}>
+                Specific Help Needed
+              </Typography>
+              <Typography 
+                paragraph 
+                sx={{ 
+                  mb: 2,
+                  p: 2,
+                  bgcolor: '#F8F9FB',
+                  borderRadius: '12px',
+                  color: '#585E6C',
+                  border: '1px solid #B5BBC9'
+                }}
+              >
+                {request.requestDetails.specificHelp}
+              </Typography>
+            </>
+          )}
+
+          {request.requestDetails?.projectDescription && (
+            <>
+              <Typography variant="subtitle1" gutterBottom sx={{ color: '#585E6C', fontWeight: 600 }}>
+                Project Description
+              </Typography>
+              <Typography 
+                paragraph 
+                sx={{ 
+                  mb: 2,
+                  p: 2,
+                  bgcolor: '#F8F9FB',
+                  borderRadius: '12px',
+                  color: '#585E6C',
+                  border: '1px solid #B5BBC9'
+                }}
+              >
+                {request.requestDetails.projectDescription}
+              </Typography>
+            </>
+          )}
+
+          {request.requestDetails?.timeCommitment && (
+            <>
+              <Typography variant="subtitle1" gutterBottom sx={{ color: '#585E6C', fontWeight: 600 }}>
+                Time Commitment
+              </Typography>
+              <Typography paragraph sx={{ mb: 2, color: '#585E6C' }}>
+                {request.requestDetails.timeCommitment}
+              </Typography>
+            </>
+          )}
+
+          {request.requestDetails?.preferredMeetingType && (
+            <>
+              <Typography variant="subtitle1" gutterBottom sx={{ color: '#585E6C', fontWeight: 600 }}>
+                Preferred Meeting Type
+              </Typography>
+              <Chip 
+                label={request.requestDetails.preferredMeetingType}
+                sx={{ mb: 2, bgcolor: '#1ABC9C', color: 'white' }}
+              />
+            </>
+          )}
 
           <Typography variant="subtitle1" gutterBottom sx={{ color: '#585E6C', fontWeight: 600 }}>
-            Message
+            Personal Message
           </Typography>
           <Typography 
             paragraph 
@@ -108,10 +182,10 @@ const MentorshipRequestPreviewDialog: React.FC<RequestPreviewProps> = ({
               borderRadius: '12px',
               color: '#585E6C',
               border: '1px solid #B5BBC9',
-              whiteSpace: 'pre-wrap'  // Preserve line breaks
+              whiteSpace: 'pre-wrap'
             }}
           >
-            {request?.details?.studentMessage || request?.message || 'No message provided'}
+            {request.requestDetails?.studentMessage || request?.message || 'No message provided'}
           </Typography>
 
           {request.mentee?.skills?.length > 0 && (
@@ -120,10 +194,10 @@ const MentorshipRequestPreviewDialog: React.FC<RequestPreviewProps> = ({
                 Student Skills
               </Typography>
               <Box display="flex" flexWrap="wrap" gap={1}>
-                {request.mentee.skills.map((skill: string, index: number) => (
+                {request.mentee.skills.map((skill: any, index: number) => (
                   <Chip 
                     key={index} 
-                    label={skill} 
+                    label={typeof skill === 'string' ? skill : skill.name || skill}
                     size="small"
                     sx={{
                       bgcolor: '#F8F9FB',

@@ -20,6 +20,8 @@ const MentorSetup = React.lazy(() => import('../pages/MentorSetup'));
 const Opportunities = React.lazy(() => import('../pages/Opportunities'));
 const Inbox = React.lazy(() => import('../pages/Inbox'));
 const AIChat = React.lazy(() => import('../pages/AIChat'));
+const TeamFormation = React.lazy(() => import('../pages/TeamFormation'));
+const TeamDashboard = React.lazy(() => import('../pages/TeamDashboard'));
 
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
@@ -134,6 +136,22 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <AIChat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teams/formation"
+          element={
+            <ProtectedRoute>
+              <TeamFormation />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teams/dashboard/:teamId"
+          element={
+            <ProtectedRoute>
+              <TeamDashboard />
             </ProtectedRoute>
           }
         />

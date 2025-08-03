@@ -92,10 +92,40 @@ router.get('/:userId', auth, async (req: any, res) => {
   }
 });
 
+// Delete a message
+router.delete('/:messageId', auth, async (req: any, res) => {
+  try {
+    const { messageId } = req.params;
+    
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+    
+    // Only allow sender to delete their own message
+    if (message.sender.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to delete this message' });
+    }
+    
+    await Message.findByIdAndDelete(messageId);
+    res.json({ message: 'Message deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Send a message
 router.post('/', auth, async (req: any, res) => {
   try {
+    console.log('Sending message:', req.body);
+    console.log('User:', req.user);
+    
     const { recipientId, content } = req.body;
+
+    if (!recipientId || !content) {
+      return res.status(400).json({ message: 'Recipient ID and content are required' });
+    }
 
     const message = new Message({
       sender: req.user._id,
@@ -107,6 +137,8 @@ router.post('/', auth, async (req: any, res) => {
     await message.save();
     await message.populate('sender', 'name avatar');
 
+    console.log('Message saved:', message);
+
     // Update recipient's message count
     await User.findByIdAndUpdate(recipientId, {
       $inc: { messageCount: 1 }
@@ -115,6 +147,7 @@ router.post('/', auth, async (req: any, res) => {
     // Socket.IO notification handled in index.ts
     res.status(201).json(message);
   } catch (error: any) {
+    console.error('Error sending message:', error);
     res.status(500).json({ message: error.message });
   }
 });
