@@ -1,9 +1,10 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { MentorshipDashboardService } from '../services/mentorshipDashboard';
+import { AuthRequest } from '../types/auth';
 
 const dashboardService = new MentorshipDashboardService();
 
-export const getDashboard = async (req: Request, res: Response) => {
+export const getDashboard = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -31,7 +32,7 @@ export const getDashboard = async (req: Request, res: Response) => {
   }
 };
 
-export const getMentorshipStats = async (req: Request, res: Response) => {
+export const getMentorshipStats = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -48,7 +49,7 @@ export const getMentorshipStats = async (req: Request, res: Response) => {
   }
 };
 
-export const getMentorshipOverview = async (req: Request, res: Response) => {
+export const getMentorshipOverview = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const limit = parseInt(req.query.limit as string) || 10;

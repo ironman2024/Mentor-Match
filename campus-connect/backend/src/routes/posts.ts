@@ -3,14 +3,7 @@ import Post from '../models/Post';
 import auth from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
-
-interface AuthRequest extends express.Request {
-  user?: {
-    _id: string;
-    id: string;
-    role?: string;
-  };
-}
+import { AuthRequest } from '../types/auth';
 
 const router = express.Router();
 

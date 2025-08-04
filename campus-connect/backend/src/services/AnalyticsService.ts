@@ -25,15 +25,15 @@ class AnalyticsService {
         
         badgeDistribution: {
           byCategory: achievements.reduce((acc, achievement) => {
-            const category = achievement.badge.category;
-            acc[category] = (acc[category] || 0) + 1;
+            const category = (achievement.badge as any)?.category;
+            if (category) acc[category] = (acc[category] || 0) + 1;
             return acc;
-          }, {}),
+          }, {} as Record<string, number>),
           byRarity: achievements.reduce((acc, achievement) => {
-            const rarity = achievement.badge.rarity;
-            acc[rarity] = (acc[rarity] || 0) + 1;
+            const rarity = (achievement.badge as any)?.rarity;
+            if (rarity) acc[rarity] = (acc[rarity] || 0) + 1;
             return acc;
-          }, {})
+          }, {} as Record<string, number>)
         },
 
         activityMetrics: {

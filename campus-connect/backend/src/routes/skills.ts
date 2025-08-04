@@ -2,14 +2,7 @@ import express from 'express';
 import { Skill, UserSkill } from '../models/Skill';
 import SkillMatchingService from '../services/SkillMatchingService';
 import auth from '../middleware/auth';
-
-interface AuthRequest extends express.Request {
-  user?: {
-    _id: string;
-    id: string;
-    role?: string;
-  };
-}
+import { AuthRequest } from '../types/auth';
 
 const router = express.Router();
 

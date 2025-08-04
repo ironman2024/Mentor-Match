@@ -163,7 +163,7 @@ export class AchievementService {
       { $match: { score: { $gt: 0 } } },
       { $sort: { score: -1 } },
       { $limit: 100 }
-    ];
+    ] as any[];
 
     const results = await UserStats.aggregate(pipeline);
     const rankings = results.map((result, index) => ({

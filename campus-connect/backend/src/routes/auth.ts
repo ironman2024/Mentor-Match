@@ -2,14 +2,7 @@ import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import auth from '../middleware/auth';
-
-interface AuthRequest extends Request {
-  user?: {
-    _id: string;
-    id: string;
-    role?: string;
-  };
-}
+import { AuthRequest } from '../types/auth';
 
 const router = express.Router();
 

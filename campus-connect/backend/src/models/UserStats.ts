@@ -8,6 +8,7 @@ export interface IUserStats extends Document {
   mentorshipScore: number;
   projectScore: number;
   collaborationScore: number;
+  contributionScore: number;
   skillEndorsements: Map<string, number>;
   achievements: Array<{
     id: string;
@@ -59,6 +60,7 @@ const userStatsSchema = new Schema({
   mentorshipScore: { type: Number, default: 0 },
   projectScore: { type: Number, default: 0 },
   collaborationScore: { type: Number, default: 0 },
+  contributionScore: { type: Number, default: 0 },
   skillEndorsements: { type: Map, of: Number, default: new Map() },
   achievements: [{
     id: String,

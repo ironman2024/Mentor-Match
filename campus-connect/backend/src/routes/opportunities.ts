@@ -2,14 +2,7 @@ import express from 'express';
 import auth from '../middleware/auth';
 import User from '../models/User';
 import Opportunity from '../models/Opportunity';
-
-interface AuthRequest extends express.Request {
-  user?: {
-    _id: string;
-    id: string;
-    role?: string;
-  };
-}
+import { AuthRequest } from '../types/auth';
 
 const router = express.Router();
 

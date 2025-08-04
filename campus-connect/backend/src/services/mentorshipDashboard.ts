@@ -25,7 +25,7 @@ export class MentorshipDashboardService {
     const user = await User.findById(userId);
     if (!user) throw new Error('User not found');
 
-    const isMentor = user.role === 'mentor';
+    const isMentor = user.role === 'faculty' || user.role === 'alumni';
     const matchField = isMentor ? 'mentor' : 'mentee';
 
     const [totalMentorships, activeMentorships, completedMentorships, upcomingEvents, totalEvents] = await Promise.all([
@@ -49,7 +49,7 @@ export class MentorshipDashboardService {
     const user = await User.findById(userId);
     if (!user) throw new Error('User not found');
 
-    const isMentor = user.role === 'mentor';
+    const isMentor = user.role === 'faculty' || user.role === 'alumni';
     const matchCondition = isMentor ? { mentor: userId } : { mentee: userId };
 
     const mentorships = await User.aggregate([
