@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, TextField, IconButton, Typography, Paper, Divider, Menu, MenuItem, Fade } from '@mui/material';
-import { Send as SendIcon, MoreVert as MoreVertIcon, Delete as DeleteIcon, Reply as ReplyIcon } from '@mui/icons-material';
+import { Send as SendIcon, MoreVert as MoreVertIcon, Delete as DeleteIcon, Reply as ReplyIcon, VideoCall } from '@mui/icons-material';
 import { useSocket } from '../../contexts/SocketContext';
 import axios from '../../config/axios';
 import UserAvatar from '../common/UserAvatar';
+import MeetingDialog from './MeetingDialog';
+import MeetingMessage from './MeetingMessage';
 
 interface Message {
   _id: string;
@@ -33,6 +35,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [loading, setLoading] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socket = useSocket();
 
@@ -167,6 +170,35 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     handleCloseMenu();
   };
 
+  const handleSendMeetingLink = async (meetingLink: string, message: string) => {
+    if (loading) return;
+
+    setLoading(true);
+    try {
+      const response = await axios.post('/messages', {
+        recipientId,
+        content: message
+      });
+
+      setMessages(prev => [...prev, response.data]);
+
+      if (socket) {
+        socket.emit('send_message', {
+          recipientId,
+          message: response.data
+        });
+      }
+      
+      if (onMessageSent) {
+        onMessageSent();
+      }
+    } catch (error) {
+      console.error('Error sending meeting link:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Box sx={{ 
       height: '100%', 
@@ -191,7 +223,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             border: '2px solid #e91e63'
           }}
         />
-        <Box>
+        <Box sx={{ flex: 1 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '14px' }}>
             {recipientName}
           </Typography>
@@ -199,6 +231,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             Active now
           </Typography>
         </Box>
+        <IconButton
+          onClick={() => setMeetingDialogOpen(true)}
+          sx={{
+            color: '#4285f4',
+            '&:hover': {
+              bgcolor: 'rgba(66, 133, 244, 0.1)'
+            }
+          }}
+        >
+          <VideoCall />
+        </IconButton>
       </Box>
 
       {/* Messages Area */}
@@ -223,6 +266,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         {messages.map((message, index) => {
           const isOwn = message.sender._id === currentUserId;
           const showAvatar = !isOwn && (index === 0 || messages[index - 1].sender._id !== message.sender._id);
+          const hasMeetLink = /https:\/\/meet\.google\.com\/[a-zA-Z0-9-]+/g.test(message.content);
           
           return (
             <Box
@@ -256,20 +300,50 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                   }
                 }}
               >
-                <Box
-                  sx={{
-                    p: '8px 12px',
-                    borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                    bgcolor: isOwn ? '#0084ff' : 'white',
-                    color: isOwn ? 'white' : '#262626',
-                    border: isOwn ? 'none' : '1px solid #efefef',
-                    fontSize: '14px',
-                    lineHeight: 1.4,
-                    wordBreak: 'break-word'
-                  }}
-                >
-                  {message.content}
-                </Box>
+                {hasMeetLink ? (
+                  <MeetingMessage
+                    content={message.content}
+                    isOwn={isOwn}
+                    timestamp={new Date(message.createdAt).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  />
+                ) : (
+                  <>
+                    <Box
+                      sx={{
+                        p: '8px 12px',
+                        borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                        bgcolor: isOwn ? '#0084ff' : 'white',
+                        color: isOwn ? 'white' : '#262626',
+                        border: isOwn ? 'none' : '1px solid #efefef',
+                        fontSize: '14px',
+                        lineHeight: 1.4,
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {message.content}
+                    </Box>
+                    
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        display: 'block',
+                        textAlign: isOwn ? 'right' : 'left',
+                        color: '#8e8e8e',
+                        fontSize: '11px',
+                        mt: 0.5,
+                        mx: 1
+                      }}
+                    >
+                      {new Date(message.createdAt).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </Typography>
+                  </>
+                )}
                 
                 {/* Message options */}
                 {isOwn && (
@@ -295,23 +369,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                     <MoreVertIcon sx={{ fontSize: 12 }} />
                   </IconButton>
                 )}
-                
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    display: 'block',
-                    textAlign: isOwn ? 'right' : 'left',
-                    color: '#8e8e8e',
-                    fontSize: '11px',
-                    mt: 0.5,
-                    mx: 1
-                  }}
-                >
-                  {new Date(message.createdAt).toLocaleTimeString([], { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
-                </Typography>
               </Box>
             </Box>
           );
@@ -386,6 +443,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           Delete
         </MenuItem>
       </Menu>
+
+      <MeetingDialog
+        open={meetingDialogOpen}
+        onClose={() => setMeetingDialogOpen(false)}
+        recipientName={recipientName}
+        onSendMeetingLink={handleSendMeetingLink}
+      />
     </Box>
   );
 };

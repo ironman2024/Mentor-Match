@@ -22,7 +22,7 @@ const Inbox = React.lazy(() => import('../pages/Inbox'));
 const AIChat = React.lazy(() => import('../pages/AIChat'));
 const TeamFormation = React.lazy(() => import('../pages/TeamFormation'));
 const TeamDashboard = React.lazy(() => import('../pages/TeamDashboard'));
-const Leaderboard = React.lazy(() => import('../pages/Leaderboard'));
+
 const UserProfile = React.lazy(() => import('../pages/UserProfile'));
 
 const AppRoutes = () => {
@@ -150,14 +150,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/leaderboard"
-          element={
-            <ProtectedRoute>
-              <Leaderboard />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/user/:userId"
           element={

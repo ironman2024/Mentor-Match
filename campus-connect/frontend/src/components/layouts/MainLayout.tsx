@@ -29,7 +29,6 @@ import {
   Group as GroupIcon,
   Event as EventIcon,
   School as SchoolIcon,
-  Leaderboard as LeaderboardIcon,
   WorkOutline as OpportunitiesIcon,
   Chat as ChatIcon,
   Logout as LogoutIcon,
@@ -99,8 +98,7 @@ const MainLayout: React.FC = () => {
     { text: 'Mentorship', icon: <GroupIcon />, path: '/mentorship' },
     { text: 'Events', icon: <EventIcon />, path: '/events' },
     { text: 'Projects', icon: <SchoolIcon />, path: '/projects' },
-    { text: 'Calendar', icon: <CalendarTodayIcon />, path: '/calendar' },
-    { text: 'Leaderboard', icon: <LeaderboardIcon />, path: '/leaderboard' }
+    { text: 'Calendar', icon: <CalendarTodayIcon />, path: '/calendar' }
   ];
 
   // Update active tab based on current path
