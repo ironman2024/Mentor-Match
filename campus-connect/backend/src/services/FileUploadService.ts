@@ -4,11 +4,21 @@ import crypto from 'crypto';
 import path from 'path';
 import dotenv from 'dotenv';
 
-dotenv.config();
-
-if (!process.env.MONGODB_URI) {
-  throw new Error('MONGODB_URI must be defined');
+// Try to load .env file, but don't fail if it doesn't exist (for production)
+try {
+  dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+} catch (error) {
+  console.log('No .env file found, using environment variables from system');
 }
+
+// Function to get MongoDB URI with better error handling
+const getMongoDBURI = () => {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error('MONGODB_URI must be defined in environment variables. Please check your deployment configuration.');
+  }
+  return uri;
+};
 
 export class FileUploadService {
   private static readonly ALLOWED_IMAGE_TYPES = /jpeg|jpg|png/;
@@ -16,7 +26,7 @@ export class FileUploadService {
   
   static createStorage(type: 'image' | 'resume' | 'avatar') {
     return new GridFsStorage({
-      url: process.env.MONGODB_URI!,
+      url: getMongoDBURI(),
       options: { useNewUrlParser: true, useUnifiedTopology: true },
       file: (req, file) => {
         return new Promise((resolve, reject) => {

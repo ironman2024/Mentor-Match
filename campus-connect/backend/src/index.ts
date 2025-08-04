@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import { validateEnvironmentVariables } from './utils/validateEnv';
 import authRoutes from './routes/auth';
 import connectDB from './config/db';
 import postRoutes from './routes/posts'; // Import the posts route
@@ -36,6 +37,9 @@ import jwt from 'jsonwebtoken';
 import User from './models/User';
 
 dotenv.config();
+
+// Validate environment variables
+validateEnvironmentVariables();
 
 const app = express();
 const PORT = process.env.PORT || 5002;

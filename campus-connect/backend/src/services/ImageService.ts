@@ -6,14 +6,25 @@ import path from 'path';
 import Image from '../models/Image';
 import dotenv from 'dotenv';
 
-dotenv.config();
-
-if (!process.env.MONGODB_URI) {
-  throw new Error('MONGODB_URI must be defined in environment variables');
+// Try to load .env file, but don't fail if it doesn't exist (for production)
+try {
+  dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+} catch (error) {
+  // In production environments, environment variables are set by the platform
+  console.log('No .env file found, using environment variables from system');
 }
 
+// Function to get MongoDB URI with better error handling
+const getMongoDBURI = () => {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error('MONGODB_URI must be defined in environment variables. Please check your deployment configuration.');
+  }
+  return uri;
+};
+
 const storage = new GridFsStorage({
-  url: process.env.MONGODB_URI,
+  url: getMongoDBURI(),
   options: {
     useNewUrlParser: true,
     useUnifiedTopology: true
