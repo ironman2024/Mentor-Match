@@ -67,7 +67,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
                 user={user}
                 size={32}
                 component={Link}
-                to={`/profile/${user?._id}`}
+                to={`/profile`}
                 sx={{ 
                   cursor: 'pointer',
                   textDecoration: 'none',

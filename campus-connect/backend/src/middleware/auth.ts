@@ -37,6 +37,7 @@ const auth = async (
     // Add user to request object
     (req as any).user = {
       _id: user._id,
+      id: user._id.toString(),
       role: user.role
     };
     

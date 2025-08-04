@@ -7,6 +7,7 @@ import assessmentRoutes from './routes/assessment';
 import eventRoutes from './routes/events';
 import leaderboardRoutes from './routes/leaderboard';
 import badgeRoutes from './routes/badges';
+import recommendationRoutes from './routes/recommendations';
 import path from 'path';
 
 const app = express();
@@ -26,6 +27,7 @@ app.use('/api/assessment', assessmentRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/badges', badgeRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 // Catch all route for React frontend
 app.get('*', (req, res) => {

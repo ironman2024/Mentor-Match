@@ -17,11 +17,13 @@ const Events = React.lazy(() => import('../pages/Events'));
 const Mentorship = React.lazy(() => import('../pages/Mentorship'));
 const MentorshipDashboard = React.lazy(() => import('../pages/Mentorship/Dashboard'));
 const MentorSetup = React.lazy(() => import('../pages/MentorSetup'));
-const Opportunities = React.lazy(() => import('../pages/Opportunities'));
+
 const Inbox = React.lazy(() => import('../pages/Inbox'));
 const AIChat = React.lazy(() => import('../pages/AIChat'));
 const TeamFormation = React.lazy(() => import('../pages/TeamFormation'));
 const TeamDashboard = React.lazy(() => import('../pages/TeamDashboard'));
+const Leaderboard = React.lazy(() => import('../pages/Leaderboard'));
+const UserProfile = React.lazy(() => import('../pages/UserProfile'));
 
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
@@ -44,7 +46,7 @@ const AppRoutes = () => {
           }
         />
           <Route
-          path="/calender"
+          path="/calendar"
           element={
             <ProtectedRoute>
               <CalendarComponent />
@@ -115,14 +117,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/opportunities"
-          element={
-            <ProtectedRoute>
-              <Opportunities />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/inbox"
           element={
@@ -152,6 +147,22 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <TeamDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leaderboard"
+          element={
+            <ProtectedRoute>
+              <Leaderboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user/:userId"
+          element={
+            <ProtectedRoute>
+              <UserProfile />
             </ProtectedRoute>
           }
         />

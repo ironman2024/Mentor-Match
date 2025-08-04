@@ -19,6 +19,13 @@ import mentorAvailabilityRoutes from './routes/mentorAvailability';
 import mentorReviewsRoutes from './routes/mentorReviews';
 import sessionSchedulingRoutes from './routes/sessionScheduling';
 import mentorshipEnhancedRoutes from './routes/mentorshipEnhanced';
+import teamRoutes from './routes/teams';
+import skillRoutes from './routes/skills';
+import leaderboardRoutes from './routes/leaderboard';
+import assessmentRoutes from './routes/assessment';
+import opportunityRoutes from './routes/opportunities';
+import opportunityApplicationRoutes from './routes/opportunityApplications';
+import systemRoutes from './routes/system';
 const socketIo = require('socket.io');
 const { Server } = socketIo;
 import http from 'http';
@@ -99,8 +106,15 @@ app.use('/api/mentor-availability', mentorAvailabilityRoutes);
 app.use('/api/mentor-reviews', mentorReviewsRoutes);
 app.use('/api/session-scheduling', sessionSchedulingRoutes);
 app.use('/api/mentorship-enhanced', mentorshipEnhancedRoutes);
-app.use('/api/projects', projectRoutes); // Add this line
+app.use('/api/projects', projectRoutes);
 app.use('/api/badges', badgeRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/skills', skillRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/assessment', assessmentRoutes);
+app.use('/api/opportunities', opportunityRoutes);
+app.use('/api/opportunity-applications', opportunityApplicationRoutes);
+app.use('/api/system', systemRoutes);
 
 app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Welcome to Campus Connect API' });

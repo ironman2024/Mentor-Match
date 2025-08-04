@@ -12,7 +12,8 @@
       "./src/types",
       "./node_modules/@types"
     ],
-    "types": ["node"]
+    "types": ["node"],
+    "resolveJsonModule": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]

@@ -48,6 +48,14 @@ const Profile: React.FC = () => {
   const navigate = useNavigate();
   const isOwnProfile = !userId || user?._id === userId;
 
+  // Redirect to UserProfile for other users' profiles
+  useEffect(() => {
+    if (userId && userId !== user?._id) {
+      navigate(`/user/${userId}`, { replace: true });
+      return;
+    }
+  }, [userId, user?._id, navigate]);
+
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
     name: '',

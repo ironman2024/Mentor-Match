@@ -6,6 +6,8 @@ import auth from '../middleware/auth';
 interface AuthRequest extends Request {
   user?: {
     _id: string;
+    id: string;
+    role?: string;
   };
 }
 

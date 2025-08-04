@@ -24,7 +24,6 @@ import {
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import PostFeed from '../components/posts/PostFeed';
-import EditProfileDialog from '../components/dialogs/EditProfileDialog';
 import MessageDialog from '../components/dialogs/MessageDialog';
 import UserAvatar from '../components/common/UserAvatar';
 import { useAuth } from '../contexts/AuthContext';
@@ -166,14 +165,7 @@ const UserProfile: React.FC = () => {
         <PostFeed posts={posts} />
       </TabPanel>
 
-      {openEdit && (
-        <EditProfileDialog
-          open={openEdit}
-          onClose={() => setOpenEdit(false)}
-          profile={profile}
-          onSave={fetchProfile}
-        />
-      )}
+
 
       {openMessage && (
         <MessageDialog

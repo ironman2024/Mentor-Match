@@ -10,8 +10,8 @@ import { Search as SearchIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import MentorshipRequestPreviewDialog from '../components/dialogs/MentorshipRequestPreviewDialog';
+import LeaderboardDialog from '../components/dialogs/LeaderboardDialog';
 import AchievementSection from '../components/mentorship/AchievementSection';
-import LeaderboardSection from '../components/mentorship/LeaderboardSection';
 import BadgeSection from '../components/mentorship/BadgeSection';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -78,6 +78,7 @@ const Mentorship: React.FC = () => {
   const [mentorToRate, setMentorToRate] = useState<Mentor | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedMentorDetails, setSelectedMentorDetails] = useState<Mentor | null>(null);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
 
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
@@ -430,7 +431,41 @@ const Mentorship: React.FC = () => {
             <AchievementSection />
           </Grid>
           <Grid item xs={12} md={4}>
-            <LeaderboardSection />
+            <Card 
+              elevation={0}
+              sx={{ 
+                border: '1px solid #B5BBC9',
+                borderRadius: '8px',
+                background: 'white',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                p: 3
+              }}
+            >
+              <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#585E6C', mb: 2 }}>
+                  🏆 Leaderboard
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#596273', mb: 3 }}>
+                  See top mentors and your ranking
+                </Typography>
+                <Button
+                  variant="contained"
+                  onClick={() => setLeaderboardOpen(true)}
+                  sx={{
+                    background: '#F39C12',
+                    '&:hover': {
+                      background: '#E67E22'
+                    }
+                  }}
+                >
+                  View Leaderboard
+                </Button>
+              </CardContent>
+            </Card>
           </Grid>
           <Grid item xs={12} md={4}>
             <BadgeSection />
@@ -1051,6 +1086,11 @@ const Mentorship: React.FC = () => {
           )}
         </DialogActions>
       </Dialog>
+
+      <LeaderboardDialog
+        open={leaderboardOpen}
+        onClose={() => setLeaderboardOpen(false)}
+      />
     </Box>
   );
 };

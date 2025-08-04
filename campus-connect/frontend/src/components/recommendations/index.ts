@@ -1,0 +1,1 @@
+export { RecommendationWidget } from './RecommendationWidget';

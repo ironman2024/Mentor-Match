@@ -41,7 +41,7 @@ const Leaderboard: React.FC = () => {
       const response = await axios.post('http://localhost:5002/api/chats', {
         participants: [mentorId]
       });
-      navigate(`/messages/${response.data._id}`);
+      navigate(`/inbox`);
     } catch (error) {
       console.error('Error starting chat:', error);
     }

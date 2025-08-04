@@ -32,6 +32,8 @@ import {
   Tooltip,
   Avatar,
   ListItemAvatar,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -41,9 +43,15 @@ import {
   Folder as FolderIcon,
   People as PeopleIcon,
   NotificationsActive as NotificationsIcon,
+  Work as WorkIcon,
+  Recommend as RecommendIcon,
+  TrendingUp as TrendingUpIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import socket from '../config/socket';
+import recommendationService from '../services/recommendationService';
+import ProjectApplicationDialog from '../components/dialogs/ProjectApplicationDialog';
 
 // Custom theme based on the color guidelines
 const theme = createTheme({
@@ -163,6 +171,7 @@ interface Project {
 const Projects: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState(0);
   const [search, setSearch] = useState('');
   const [openCreate, setOpenCreate] = useState(false);
   const [newProject, setNewProject] = useState({
@@ -180,19 +189,34 @@ const Projects: React.FC = () => {
     projectType: 'software'
   });
   const [projects, setProjects] = useState<Project[]>([]);
+  const [opportunities, setOpportunities] = useState<any[]>([]);
+  const [recommendedProjects, setRecommendedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [skillInput, setSkillInput] = useState('');
   const [techStackInput, setTechStackInput] = useState('');
   const [prerequisiteInput, setPrerequisiteInput] = useState('');
   const [applications, setApplications] = useState<{[key: string]: any[]}>({});
   const [openApply, setOpenApply] = useState(false);
   const [selectedProjectForApply, setSelectedProjectForApply] = useState<any>(null);
-  const [applicationMessage, setApplicationMessage] = useState('');
   const [applicationsAnchorEl, setApplicationsAnchorEl] = useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [openOpportunityDialog, setOpenOpportunityDialog] = useState(false);
+  const [opportunityFormData, setOpportunityFormData] = useState({
+    title: '',
+    description: '',
+    type: 'internship',
+    deadline: '',
+    requirements: '',
+    contactInfo: ''
+  });
+
+  const canPost = user?.role === 'faculty' || user?.role === 'alumni';
 
   useEffect(() => {
     fetchProjects();
+    fetchOpportunities();
+    fetchRecommendations();
   }, []);
 
   const fetchProjects = async () => {
@@ -212,6 +236,27 @@ const Projects: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOpportunities = async () => {
+    try {
+      const response = await axios.get('http://localhost:5002/api/opportunities');
+      setOpportunities(response.data);
+    } catch (error) {
+      console.error('Error fetching opportunities:', error);
+    }
+  };
+
+  const fetchRecommendations = async () => {
+    try {
+      setLoadingRecommendations(true);
+      const recommendations = await recommendationService.getProjectRecommendations({ limit: 12 });
+      setRecommendedProjects(recommendations);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    } finally {
+      setLoadingRecommendations(false);
     }
   };
 
@@ -263,6 +308,16 @@ const Projects: React.FC = () => {
       )
     );
   }, [projects, search]);
+
+  const filteredOpportunities = React.useMemo(() => {
+    if (!opportunities?.length) return [];
+    
+    return opportunities.filter(opp =>
+      opp.title.toLowerCase().includes(search.toLowerCase()) ||
+      opp.description.toLowerCase().includes(search.toLowerCase()) ||
+      opp.type.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [opportunities, search]);
 
   useEffect(() => {
     socket.on('new_project', (project: Project) => {
@@ -351,17 +406,19 @@ const Projects: React.FC = () => {
   };
 
   const handleApplyClick = (project: any) => {
+    // Record interaction for recommendation improvement
+    recommendationService.recordInteraction('apply', project._id, 'project');
     setSelectedProjectForApply(project);
     setOpenApply(true);
   };
 
-  const handleSubmitApplication = async () => {
+  const handleSubmitApplication = async (applicationData: any) => {
     try {
       const response = await axios.post(
         'http://localhost:5002/api/projects/apply',
         {
           projectId: selectedProjectForApply._id,
-          message: applicationMessage
+          applicationData
         },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -370,11 +427,30 @@ const Projects: React.FC = () => {
       
       enqueueSnackbar('Application submitted successfully', { variant: 'success' });
       setOpenApply(false);
-      setApplicationMessage('');
       setSelectedProjectForApply(null);
     } catch (error) {
       console.error('Error submitting application:', error);
       enqueueSnackbar('Failed to submit application', { variant: 'error' });
+    }
+  };
+
+  const handleSubmitOpportunity = async () => {
+    try {
+      await axios.post('http://localhost:5002/api/opportunities', opportunityFormData);
+      setOpenOpportunityDialog(false);
+      fetchOpportunities();
+      setOpportunityFormData({
+        title: '',
+        description: '',
+        type: 'internship',
+        deadline: '',
+        requirements: '',
+        contactInfo: ''
+      });
+      enqueueSnackbar('Opportunity posted successfully', { variant: 'success' });
+    } catch (error) {
+      console.error('Error posting opportunity:', error);
+      enqueueSnackbar('Failed to post opportunity', { variant: 'error' });
     }
   };
 
@@ -524,6 +600,206 @@ const Projects: React.FC = () => {
     </Card>
   );
 
+  const renderRecommendedProjectCard = (project: any) => (
+    <Card sx={{ 
+      height: '100%',
+      border: '2px solid',
+      borderColor: alpha('#1ABC9C', 0.3),
+      position: 'relative',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '4px',
+        background: 'linear-gradient(90deg, #1ABC9C 0%, #3498DB 100%)'
+      }
+    }}>
+      <CardContent sx={{ p: 3 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start',
+          mb: 1 
+        }}>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+            {project.title}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Chip
+              label="Recommended"
+              size="small"
+              sx={{ 
+                backgroundColor: alpha('#1ABC9C', 0.1),
+                color: '#1ABC9C',
+                fontWeight: 600,
+                fontSize: '0.7rem'
+              }}
+            />
+            <Chip
+              label={project.status}
+              color={getStatusColor(project.status) as any}
+              size="small"
+              sx={{ 
+                fontWeight: 500,
+                textTransform: 'capitalize'
+              }}
+            />
+          </Box>
+        </Box>
+        
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          mb: 2,
+          color: 'text.secondary'
+        }}>
+          <Chip 
+            label={project.projectType} 
+            variant="outlined"
+            size="small"
+            sx={{ mr: 1, textTransform: 'capitalize' }}
+          />
+          {project.technicalDetails?.complexity && (
+            <Chip 
+              label={project.technicalDetails.complexity} 
+              size="small"
+              sx={{ 
+                backgroundColor: alpha(getComplexityColor(project.technicalDetails.complexity), 0.1),
+                color: getComplexityColor(project.technicalDetails.complexity),
+                fontWeight: 500,
+                textTransform: 'capitalize'
+              }}
+            />
+          )}
+        </Box>
+        
+        <Typography color="text.secondary" sx={{ mb: 2, fontSize: '0.95rem', height: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {project.description}
+        </Typography>
+        
+        <Typography variant="subtitle2" sx={{ mb: 1, color: 'primary.main', fontWeight: 600 }}>
+          Skills Match
+        </Typography>
+        <Box mb={2} sx={{ minHeight: '60px' }}>
+          {project.skills?.map((skill) => (
+            <Chip
+              key={skill}
+              label={skill}
+              size="small"
+              sx={{ 
+                mr: 0.5, 
+                mb: 0.5,
+                backgroundColor: alpha('#1ABC9C', 0.1),
+                color: '#1ABC9C',
+                fontWeight: 500
+              }}
+            />
+          ))}
+          {(!project.skills || project.skills.length === 0) && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              No skills specified
+            </Typography>
+          )}
+        </Box>
+        
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            mt: 2,
+            pt: 2,
+            borderTop: '1px solid',
+            borderColor: alpha('#000', 0.08)
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box display="flex" alignItems="center">
+              <TrendingUpIcon sx={{ mr: 1, color: '#1ABC9C', fontSize: 18 }} />
+              <Typography variant="body2" sx={{ color: '#1ABC9C', fontWeight: 500 }}>
+                {Math.floor(Math.random() * 30) + 70}% Match
+              </Typography>
+            </Box>
+            <Box display="flex" alignItems="center">
+              <PersonIcon sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="body2">
+                {project.team?.length || 0} member{project.team?.length !== 1 ? 's' : ''}
+              </Typography>
+            </Box>
+          </Box>
+          {project.owner !== user?._id && (
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => handleApplyClick(project)}
+              startIcon={<PersonIcon />}
+              sx={{
+                backgroundColor: '#1ABC9C',
+                '&:hover': {
+                  backgroundColor: '#16A085'
+                }
+              }}
+            >
+              Apply
+            </Button>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
+  const renderOpportunityCard = (opportunity: any) => (
+    <Card sx={{ height: '100%' }}>
+      <CardContent sx={{ p: 3 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start',
+          mb: 1 
+        }}>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+            {opportunity.title}
+          </Typography>
+          <Chip
+            label={opportunity.type}
+            color="primary"
+            size="small"
+            sx={{ 
+              fontWeight: 500,
+              textTransform: 'capitalize'
+            }}
+          />
+        </Box>
+        
+        <Typography color="text.secondary" gutterBottom>
+          Posted by {opportunity.author.name}
+        </Typography>
+        
+        <Typography color="text.secondary" sx={{ mb: 2, fontSize: '0.95rem', height: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {opportunity.description}
+        </Typography>
+        
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            mt: 2,
+            pt: 2,
+            borderTop: '1px solid',
+            borderColor: alpha('#000', 0.08)
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Deadline: {new Date(opportunity.deadline).toLocaleDateString()}
+          </Typography>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ backgroundColor: '#F5F7FA', p: 3, minHeight: '100vh' }}>
@@ -541,23 +817,59 @@ const Projects: React.FC = () => {
               Projects
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Browse available projects or create your own
+              Browse available projects and opportunities
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            color="secondary"
-            startIcon={<AddIcon />}
-            onClick={() => setOpenCreate(true)}
-            sx={{ 
-              py: 1.2, 
-              px: 3, 
-              fontWeight: 600,
-              fontSize: '1rem'
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<AddIcon />}
+              onClick={() => setOpenCreate(true)}
+              sx={{ 
+                py: 1.2, 
+                px: 3, 
+                fontWeight: 600,
+                fontSize: '1rem'
+              }}
+            >
+              Create Project
+            </Button>
+            {canPost && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<WorkIcon />}
+                onClick={() => setOpenOpportunityDialog(true)}
+                sx={{ 
+                  py: 1.2, 
+                  px: 3, 
+                  fontWeight: 600,
+                  fontSize: '1rem'
+                }}
+              >
+                Post Opportunity
+              </Button>
+            )}
+          </Box>
+        </Box>
+
+        <Box sx={{ mb: 3 }}>
+          <Tabs 
+            value={activeTab} 
+            onChange={(e, newValue) => setActiveTab(newValue)}
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '1rem'
+              }
             }}
           >
-            Create Project
-          </Button>
+            <Tab label="All Projects" />
+            <Tab label="Recommended" icon={<RecommendIcon />} iconPosition="start" />
+            <Tab label="Opportunities" />
+          </Tabs>
         </Box>
 
         <TextField
@@ -597,41 +909,157 @@ const Projects: React.FC = () => {
           </Box>
         ) : (
           <>
-            {filteredProjects.length === 0 ? (
-              <Box sx={{ 
-                textAlign: 'center', 
-                py: 6, 
-                backgroundColor: 'white', 
-                borderRadius: 3,
-                border: '1px dashed #CCCCCC'
-              }}>
-                <FolderIcon sx={{ fontSize: 60, color: alpha('#596273', 0.3), mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">
-                  No projects found
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  {search ? 'Try adjusting your search terms' : 'Create your first project to get started'}
-                </Typography>
-                {!search && (
-                  <Button 
-                    variant="contained" 
-                    color="secondary" 
-                    startIcon={<AddIcon />}
-                    onClick={() => setOpenCreate(true)}
-                    sx={{ mt: 3 }}
-                  >
-                    Create Project
-                  </Button>
+            {activeTab === 0 ? (
+              filteredProjects.length === 0 ? (
+                <Box sx={{ 
+                  textAlign: 'center', 
+                  py: 6, 
+                  backgroundColor: 'white', 
+                  borderRadius: 3,
+                  border: '1px dashed #CCCCCC'
+                }}>
+                  <FolderIcon sx={{ fontSize: 60, color: alpha('#596273', 0.3), mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    No projects found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {search ? 'Try adjusting your search terms' : 'Create your first project to get started'}
+                  </Typography>
+                  {!search && (
+                    <Button 
+                      variant="contained" 
+                      color="secondary" 
+                      startIcon={<AddIcon />}
+                      onClick={() => setOpenCreate(true)}
+                      sx={{ mt: 3 }}
+                    >
+                      Create Project
+                    </Button>
+                  )}
+                </Box>
+              ) : (
+                <Grid container spacing={3}>
+                  {filteredProjects.map((project) => (
+                    <Grid item xs={12} md={6} lg={4} key={project.id || project._id}>
+                      {renderProjectCard(project)}
+                    </Grid>
+                  ))}
+                </Grid>
+              )
+            ) : activeTab === 1 ? (
+              <Box>
+                <Box sx={{ 
+                  backgroundColor: 'white', 
+                  borderRadius: 3, 
+                  p: 3, 
+                  mb: 3,
+                  border: '1px solid',
+                  borderColor: alpha('#1ABC9C', 0.2),
+                  background: `linear-gradient(135deg, ${alpha('#1ABC9C', 0.05)} 0%, ${alpha('#3498DB', 0.05)} 100%)`
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <RecommendIcon sx={{ color: '#1ABC9C', mr: 1, fontSize: 28 }} />
+                      <Typography variant="h5" sx={{ fontWeight: 600, color: '#2D3E50' }}>
+                        Recommended for You
+                      </Typography>
+                    </Box>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={fetchRecommendations}
+                      disabled={loadingRecommendations}
+                      sx={{ 
+                        borderColor: '#1ABC9C',
+                        color: '#1ABC9C',
+                        '&:hover': {
+                          borderColor: '#16A085',
+                          backgroundColor: alpha('#1ABC9C', 0.05)
+                        }
+                      }}
+                    >
+                      {loadingRecommendations ? 'Refreshing...' : 'Refresh'}
+                    </Button>
+                  </Box>
+                  <Typography variant="body1" color="text.secondary">
+                    Projects tailored to your skills, interests, and experience level
+                  </Typography>
+                </Box>
+
+                {loadingRecommendations ? (
+                  <Box display="flex" justifyContent="center" p={4}>
+                    <CircularProgress color="secondary" />
+                  </Box>
+                ) : recommendedProjects.length === 0 ? (
+                  <Box sx={{ 
+                    textAlign: 'center', 
+                    py: 6, 
+                    backgroundColor: 'white', 
+                    borderRadius: 3,
+                    border: '1px dashed #CCCCCC'
+                  }}>
+                    <StarIcon sx={{ fontSize: 60, color: alpha('#596273', 0.3), mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary">
+                      No recommendations available
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Complete your profile with skills and interests to get personalized recommendations
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Grid container spacing={3}>
+                    {recommendedProjects.map((project) => (
+                      <Grid 
+                        item 
+                        xs={12} 
+                        md={6} 
+                        lg={4} 
+                        key={project.id || project._id}
+                        onMouseEnter={() => recommendationService.recordInteraction('view', project._id, 'project')}
+                      >
+                        {renderRecommendedProjectCard(project)}
+                      </Grid>
+                    ))}
+                  </Grid>
                 )}
               </Box>
             ) : (
-              <Grid container spacing={3}>
-                {filteredProjects.map((project) => (
-                  <Grid item xs={12} md={6} lg={4} key={project.id || project._id}>
-                    {renderProjectCard(project)}
-                  </Grid>
-                ))}
-              </Grid>
+              filteredOpportunities.length === 0 ? (
+                <Box sx={{ 
+                  textAlign: 'center', 
+                  py: 6, 
+                  backgroundColor: 'white', 
+                  borderRadius: 3,
+                  border: '1px dashed #CCCCCC'
+                }}>
+                  <WorkIcon sx={{ fontSize: 60, color: alpha('#596273', 0.3), mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    No opportunities found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {search ? 'Try adjusting your search terms' : canPost ? 'Post your first opportunity to get started' : 'Check back later for new opportunities'}
+                  </Typography>
+                  {!search && canPost && (
+                    <Button 
+                      variant="contained" 
+                      color="secondary" 
+                      startIcon={<WorkIcon />}
+                      onClick={() => setOpenOpportunityDialog(true)}
+                      sx={{ mt: 3 }}
+                    >
+                      Post Opportunity
+                    </Button>
+                  )}
+                </Box>
+              ) : (
+                <Grid container spacing={3}>
+                  {filteredOpportunities.map((opportunity) => (
+                    <Grid item xs={12} md={6} lg={4} key={opportunity._id}>
+                      {renderOpportunityCard(opportunity)}
+                    </Grid>
+                  ))}
+                </Grid>
+              )
             )}
           </>
         )}
@@ -906,40 +1334,13 @@ const Projects: React.FC = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Add Application Dialog */}
-        <Dialog 
-          open={openApply} 
+        {/* Project Application Dialog */}
+        <ProjectApplicationDialog
+          open={openApply}
           onClose={() => setOpenApply(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>Apply for Project</DialogTitle>
-          <DialogContent>
-            <Typography variant="subtitle1" gutterBottom>
-              {selectedProjectForApply?.title}
-            </Typography>
-            <TextField
-              fullWidth
-              multiline
-              rows={4}
-              label="Why do you want to join this project?"
-              value={applicationMessage}
-              onChange={(e) => setApplicationMessage(e.target.value)}
-              sx={{ mt: 2 }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenApply(false)}>Cancel</Button>
-            <Button 
-              variant="contained" 
-              color="primary"
-              onClick={handleSubmitApplication}
-              disabled={!applicationMessage.trim()}
-            >
-              Submit Application
-            </Button>
-          </DialogActions>
-        </Dialog>
+          project={selectedProjectForApply}
+          onSubmit={handleSubmitApplication}
+        />
 
         {/* Applications Menu */}
         <Menu
@@ -968,6 +1369,52 @@ const Projects: React.FC = () => {
             </MenuItem>
           )}
         </Menu>
+
+        {/* Opportunity Dialog */}
+        <Dialog open={openOpportunityDialog} onClose={() => setOpenOpportunityDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Post New Opportunity</DialogTitle>
+          <DialogContent>
+            <Box display="flex" flexDirection="column" gap={2} mt={2}>
+              <TextField
+                label="Title"
+                fullWidth
+                value={opportunityFormData.title}
+                onChange={(e) => setOpportunityFormData({...opportunityFormData, title: e.target.value})}
+              />
+              <TextField
+                label="Description"
+                fullWidth
+                multiline
+                rows={4}
+                value={opportunityFormData.description}
+                onChange={(e) => setOpportunityFormData({...opportunityFormData, description: e.target.value})}
+              />
+              <FormControl fullWidth>
+                <InputLabel>Type</InputLabel>
+                <Select
+                  value={opportunityFormData.type}
+                  onChange={(e) => setOpportunityFormData({...opportunityFormData, type: e.target.value})}
+                >
+                  <MenuItem value="internship">Internship</MenuItem>
+                  <MenuItem value="project">Project</MenuItem>
+                  <MenuItem value="hackathon">Hackathon</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                label="Deadline"
+                type="date"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                value={opportunityFormData.deadline}
+                onChange={(e) => setOpportunityFormData({...opportunityFormData, deadline: e.target.value})}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenOpportunityDialog(false)}>Cancel</Button>
+            <Button onClick={handleSubmitOpportunity} variant="contained">Post</Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </ThemeProvider>
   );

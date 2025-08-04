@@ -7,6 +7,8 @@ import path from 'path';
 interface AuthRequest extends express.Request {
   user?: {
     _id: string;
+    id: string;
+    role?: string;
   };
 }
 

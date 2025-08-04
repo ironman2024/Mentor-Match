@@ -1,19 +1,34 @@
 import express from 'express';
 import auth from '../middleware/auth';
 import User from '../models/User';
+import Opportunity from '../models/Opportunity';
+
+interface AuthRequest extends express.Request {
+  user?: {
+    _id: string;
+    id: string;
+    role?: string;
+  };
+}
 
 const router = express.Router();
 
 // Middleware to check if user is faculty or alumni
-const checkRole = (req: any, res: any, next: any) => {
+const checkRole = (req: AuthRequest, res: express.Response, next: express.NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'User not authenticated' });
+  }
   if (req.user.role !== 'faculty' && req.user.role !== 'alumni') {
     return res.status(403).json({ message: 'Not authorized to post opportunities' });
   }
   next();
 };
 
-router.post('/', auth, checkRole, async (req: any, res) => {
+router.post('/', auth, checkRole, async (req: AuthRequest, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     const opportunity = new Opportunity({
       ...req.body,
       author: req.user._id
@@ -25,7 +40,7 @@ router.post('/', auth, checkRole, async (req: any, res) => {
   }
 });
 
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, async (req: AuthRequest, res) => {
   try {
     const opportunities = await Opportunity.find()
       .sort({ createdAt: -1 })

@@ -94,14 +94,13 @@ const MainLayout: React.FC = () => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
     { text: 'Messages', icon: <ChatIcon />, path: '/inbox' },
     { text: 'Mentorship', icon: <GroupIcon />, path: '/mentorship' },
     { text: 'Events', icon: <EventIcon />, path: '/events' },
     { text: 'Projects', icon: <SchoolIcon />, path: '/projects' },
-    { text: 'Calendar', icon: <CalendarTodayIcon />, path: '/calender' },
-    ...(user?.role === 'faculty' || user?.role === 'alumni' ? [
-      { text: 'Opportunities', icon: <OpportunitiesIcon />, path: '/opportunities' }
-    ] : [])
+    { text: 'Calendar', icon: <CalendarTodayIcon />, path: '/calendar' },
+    { text: 'Leaderboard', icon: <LeaderboardIcon />, path: '/leaderboard' }
   ];
 
   // Update active tab based on current path

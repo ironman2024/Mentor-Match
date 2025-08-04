@@ -1,9 +1,17 @@
 import express from 'express';
 import { Question, Assessment } from '../models/Assessment';
 import ProfessionalProfile from '../models/ProfessionalProfile';
-import { auth } from '../middleware/auth';
+import auth from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
+
+interface AuthRequest extends express.Request {
+  user?: {
+    _id: string;
+    id: string;
+    role?: string;
+  };
+}
 
 const router = express.Router();
 
@@ -33,7 +41,7 @@ const upload = multer({
 });
 
 // Create professional profile
-router.post('/professional-profile', auth, upload.single('resume'), async (req, res) => {
+router.post('/professional-profile', auth, upload.single('resume'), async (req: AuthRequest, res) => {
   try {
     const { 
       education, 
@@ -43,6 +51,10 @@ router.post('/professional-profile', auth, upload.single('resume'), async (req, 
       currentPosition,
       certifications 
     } = req.body;
+
+    if (!req.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
 
     if (!req.file) {
       return res.status(400).json({ message: 'Resume file is required' });
@@ -74,7 +86,7 @@ router.post('/professional-profile', auth, upload.single('resume'), async (req, 
 });
 
 // Get assessment questions for a domain
-router.get('/questions/:domain', auth, async (req, res) => {
+router.get('/questions/:domain', auth, async (req: AuthRequest, res) => {
   try {
     const { domain } = req.params;
     
@@ -97,7 +109,7 @@ router.get('/questions/:domain', auth, async (req, res) => {
 });
 
 // Submit assessment
-router.post('/submit/:domain', auth, async (req, res) => {
+router.post('/submit/:domain', auth, async (req: AuthRequest, res) => {
   try {
     const { domain } = req.params;
     const { answers } = req.body; // Array of { questionId, selectedAnswer, timeSpent }
@@ -123,6 +135,10 @@ router.post('/submit/:domain', auth, async (req, res) => {
 
     const score = Math.round((correctAnswers / questions.length) * 100);
     const status = score >= 70 ? 'completed' : 'failed';
+
+    if (!req.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
 
     // Save assessment
     const assessment = new Assessment({
@@ -165,8 +181,12 @@ router.post('/submit/:domain', auth, async (req, res) => {
 });
 
 // Get user's assessment history
-router.get('/history', auth, async (req, res) => {
+router.get('/history', auth, async (req: AuthRequest, res) => {
   try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
     const assessments = await Assessment.find({ user: req.user.id })
       .sort({ createdAt: -1 })
       .select('-questions.questionId');
@@ -179,8 +199,12 @@ router.get('/history', auth, async (req, res) => {
 });
 
 // Get professional profile
-router.get('/professional-profile', auth, async (req, res) => {
+router.get('/professional-profile', auth, async (req: AuthRequest, res) => {
   try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
     const profile = await ProfessionalProfile.findOne({ user: req.user.id });
     if (!profile) {
       return res.status(404).json({ message: 'Professional profile not found' });
