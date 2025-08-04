@@ -24,11 +24,8 @@ const MeetingDialog: React.FC<MeetingDialogProps> = ({
   const [copied, setCopied] = useState(false);
 
   const generateMeetLink = () => {
-    // Generate a random meeting ID for Google Meet
-    const meetingId = Math.random().toString(36).substring(2, 15);
-    const link = `https://meet.google.com/${meetingId}`;
-    setMeetingLink(link);
-    setCustomMessage(`Hi ${recipientName}! Let's have a video call. Join me here: ${link}`);
+    // Open Google Meet to create a new meeting
+    window.open('https://meet.google.com/new', '_blank');
   };
 
   const copyToClipboard = async () => {
@@ -95,25 +92,46 @@ const MeetingDialog: React.FC<MeetingDialogProps> = ({
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Typography variant="body2" sx={{ color: '#666', mb: 2 }}>
-            Create a Google Meet link to start a video call with {recipientName}
+            Create a Google Meet link or paste an existing one to start a video call with {recipientName}
           </Typography>
           
-          <Button
-            variant="contained"
-            startIcon={<VideoCall />}
-            onClick={generateMeetLink}
-            sx={{
-              background: '#4285f4',
-              '&:hover': {
-                background: '#3367d6'
-              },
-              textTransform: 'none',
-              fontWeight: 600,
-              borderRadius: '8px'
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<VideoCall />}
+              onClick={generateMeetLink}
+              sx={{
+                borderColor: '#4285f4',
+                color: '#4285f4',
+                '&:hover': {
+                  borderColor: '#3367d6',
+                  bgcolor: 'rgba(66, 133, 244, 0.04)'
+                },
+                textTransform: 'none',
+                fontWeight: 600,
+                borderRadius: '8px'
+              }}
+            >
+              Create New Meeting
+            </Button>
+          </Box>
+          
+          <TextField
+            fullWidth
+            placeholder="Paste Google Meet link here (e.g., https://meet.google.com/abc-defg-hij)"
+            value={meetingLink}
+            onChange={(e) => {
+              setMeetingLink(e.target.value);
+              if (e.target.value) {
+                setCustomMessage(`Hi ${recipientName}! Let's have a video call. Join me here: ${e.target.value}`);
+              }
             }}
-          >
-            Generate Meeting Link
-          </Button>
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '8px'
+              }
+            }}
+          />
         </Box>
 
         {meetingLink && (
