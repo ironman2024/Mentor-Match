@@ -5,47 +5,57 @@ import crypto from 'crypto';
 import path from 'path';
 import Image from '../models/Image';
 
-// Function to get MongoDB URI with better error handling
-const getMongoDBURI = () => {
+// Cached instances
+let cachedStorage: any = null;
+let cachedUpload: multer.Multer | null = null;
+
+// Function to create upload middleware on demand
+const createUpload = () => {
+  if (cachedUpload) {
+    return cachedUpload;
+  }
+
   const uri = process.env.MONGODB_URI;
   if (!uri) {
     throw new Error('MONGODB_URI must be defined in environment variables. Please check your deployment configuration.');
   }
-  return uri;
-};
 
-const storage = new GridFsStorage({
-  url: getMongoDBURI(),
-  options: {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  },
-  file: (req, file) => {
-    return new Promise((resolve, reject) => {
-      crypto.randomBytes(16, (err, buf) => {
-        if (err) {
-          return reject(err);
-        }
-        const filename = buf.toString('hex') + path.extname(file.originalname);
-        const fileInfo = {
-          filename: filename,
-          bucketName: 'uploads'
-        };
-        resolve(fileInfo);
+  const storage = new GridFsStorage({
+    url: uri,
+    options: {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    },
+    file: (req, file) => {
+      return new Promise((resolve, reject) => {
+        crypto.randomBytes(16, (err, buf) => {
+          if (err) {
+            return reject(err);
+          }
+          const filename = buf.toString('hex') + path.extname(file.originalname);
+          const fileInfo = {
+            filename: filename,
+            bucketName: 'uploads'
+          };
+          resolve(fileInfo);
+        });
       });
-    });
-  }
-});
+    }
+  });
 
-// Handle storage errors
-storage.on('connectionError', (error) => {
-  console.error('GridFS Storage connection error:', error);
-});
+  // Handle storage errors
+  storage.on('connectionError', (error: any) => {
+    console.error('GridFS Storage connection error:', error);
+  });
 
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-});
+  cachedStorage = storage;
+  cachedUpload = multer({ 
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  });
+
+  return cachedUpload;
+};
 
 const saveImageMetadata = async (file: Express.Multer.File, userId: string) => {
   const image = new Image({
@@ -66,4 +76,4 @@ const getImage = async (filename: string) => {
   return bucket.openDownloadStreamByName(filename);
 };
 
-export { upload, saveImageMetadata, getImage };
+export { createUpload as upload, saveImageMetadata, getImage };

@@ -5,7 +5,10 @@ import Image from '../models/Image';
 
 const router = express.Router();
 
-router.post('/upload', auth, upload.single('image'), async (req: any, res) => {
+router.post('/upload', auth, (req: any, res: any, next: any) => {
+  const uploadMiddleware = upload().single('image');
+  uploadMiddleware(req, res, next);
+}, async (req: any, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
