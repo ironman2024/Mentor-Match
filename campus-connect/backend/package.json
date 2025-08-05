@@ -6,7 +6,7 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "prebuild": "rm -rf dist",
+    "prebuild": "if exist dist rmdir /s /q dist",
     "postbuild": "echo 'Build completed successfully'"
   },
   "dependencies": {
