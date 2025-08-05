@@ -17,6 +17,7 @@ const createUpload = () => {
 
   const uri = process.env.MONGODB_URI;
   if (!uri) {
+    console.error('Environment variables available:', Object.keys(process.env));
     throw new Error('MONGODB_URI must be defined in environment variables. Please check your deployment configuration.');
   }
 

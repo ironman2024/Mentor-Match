@@ -38,7 +38,7 @@ import User from './models/User';
 
 dotenv.config();
 
-// Validate environment variables
+// Validate environment variables after loading .env
 validateEnvironmentVariables();
 
 const app = express();

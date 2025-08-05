@@ -5,7 +5,9 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "prebuild": "rm -rf dist",
+    "postbuild": "echo 'Build completed successfully'"
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.0",
