@@ -10,6 +10,11 @@ import Badge from '../models/Badge';
 import { BadgeService } from '../services/BadgeService';
 import { AchievementTrackingService } from '../services/AchievementTrackingService';
 import LeaderboardService from '../services/LeaderboardService';
+import { SchedulingService } from '../services/SchedulingService';
+import { MentorshipDashboardService } from '../services/MentorshipDashboardService';
+import MentorAvailability from '../models/MentorAvailability';
+import MentorReview from '../models/MentorReview';
+import MentorshipRequest from '../models/MentorshipRequest';
 import mongoose, { Document, Types } from 'mongoose';
 import multer from 'multer';
 import path from 'path';
@@ -52,20 +57,18 @@ router.get('/test-auth', auth, (req: any, res) => {
 // Get mentor dashboard stats
 router.get('/stats', auth, async (req: any, res) => {
   try {
-    const stats = await MentorshipSession.aggregate([
-      { $match: { mentor: req.user._id } },
-      {
-        $group: {
-          _id: null,
-          totalSessions: { $sum: 1 },
-          completedSessions: {
-            $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
-          },
-          activeStudents: { $addToSet: '$mentee' }
-        }
-      }
-    ]);
-    res.json(stats[0] || { totalSessions: 0, completedSessions: 0, activeStudents: [] });
+    const stats = await MentorshipDashboardService.getMentorStats(req.user._id);
+    res.json(stats);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get mentee dashboard stats
+router.get('/mentee-stats', auth, async (req: any, res) => {
+  try {
+    const stats = await MentorshipDashboardService.getMenteeStats(req.user._id);
+    res.json(stats);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -636,6 +639,163 @@ router.get('/rank', auth, async (req: any, res) => {
   try {
     const rank = await LeaderboardService.getUserRank(req.user._id, 'mentorship');
     res.json(rank || { rank: null, score: 0 });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get mentor availability
+router.get('/availability/:mentorId', auth, async (req, res) => {
+  try {
+    const { mentorId } = req.params;
+    const { date } = req.query;
+    
+    if (date) {
+      const slots = await SchedulingService.getAvailableSlots(mentorId, new Date(date as string));
+      res.json({ slots });
+    } else {
+      const availability = await MentorAvailability.findOne({ mentor: mentorId });
+      res.json(availability || { weeklySchedule: [], exceptions: [] });
+    }
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Schedule a session
+router.post('/schedule', auth, async (req: any, res) => {
+  try {
+    const { mentorId, scheduledDate, duration, topic, meetingType, location } = req.body;
+    
+    const session = await SchedulingService.scheduleSession({
+      mentorId,
+      menteeId: req.user._id,
+      scheduledDate: new Date(scheduledDate),
+      duration: duration || 60,
+      topic,
+      meetingType,
+      location
+    });
+    
+    // Create notification for mentor
+    await Notification.create({
+      recipient: mentorId,
+      type: 'session_scheduled',
+      title: 'New Session Scheduled',
+      message: `${req.user.name} has scheduled a session with you`,
+      read: false
+    });
+    
+    res.status(201).json({ message: 'Session scheduled successfully', session });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Get mentorship history
+router.get('/history', auth, async (req: any, res) => {
+  try {
+    const sessions = await MentorshipSession.find({
+      $or: [{ mentor: req.user._id }, { mentee: req.user._id }]
+    })
+    .populate('mentor', 'name avatar')
+    .populate('mentee', 'name avatar')
+    .sort({ 'meetingDetails.scheduledDate': -1 });
+    
+    res.json(sessions);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Submit session review
+router.post('/review/:sessionId', auth, async (req: any, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { rating, review, categories } = req.body;
+    
+    const session = await MentorshipSession.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+    
+    const isMentor = session.mentor.toString() === req.user._id;
+    const isParticipant = isMentor || session.mentee.toString() === req.user._id;
+    
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    
+    // Create review
+    const mentorReview = new MentorReview({
+      mentor: session.mentor,
+      mentee: session.mentee,
+      session: sessionId,
+      rating,
+      review,
+      categories: categories || {
+        communication: rating,
+        expertise: rating,
+        helpfulness: rating,
+        availability: rating
+      }
+    });
+    
+    await mentorReview.save();
+    res.json({ message: 'Review submitted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get mentor reviews
+router.get('/reviews/:mentorId', auth, async (req, res) => {
+  try {
+    const { mentorId } = req.params;
+    const reviews = await MentorReview.find({ mentor: mentorId, status: 'active' })
+      .populate('mentee', 'name avatar')
+      .sort({ createdAt: -1 })
+      .limit(20);
+    
+    const stats = await MentorReview.aggregate([
+      { $match: { mentor: new mongoose.Types.ObjectId(mentorId), status: 'active' } },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+          totalReviews: { $sum: 1 },
+          avgCommunication: { $avg: '$categories.communication' },
+          avgExpertise: { $avg: '$categories.expertise' },
+          avgHelpfulness: { $avg: '$categories.helpfulness' },
+          avgAvailability: { $avg: '$categories.availability' }
+        }
+      }
+    ]);
+    
+    res.json({ reviews, stats: stats[0] || {} });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update mentor availability
+router.put('/availability', auth, async (req: any, res) => {
+  try {
+    const { weeklySchedule, timezone, maxSessionsPerDay, sessionDuration } = req.body;
+    
+    const availability = await MentorAvailability.findOneAndUpdate(
+      { mentor: req.user._id },
+      {
+        mentor: req.user._id,
+        weeklySchedule,
+        timezone: timezone || 'UTC',
+        maxSessionsPerDay: maxSessionsPerDay || 3,
+        sessionDuration: sessionDuration || 60
+      },
+      { upsert: true, new: true }
+    );
+    
+    res.json({ message: 'Availability updated successfully', availability });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

@@ -16,7 +16,7 @@ COPY src/ ./src/
 RUN mkdir -p uploads/images
 
 # Build TypeScript code
-RUN npm run build
+RUN npx tsc
 
 # Expose the port the app runs on
 ENV PORT=8080
