@@ -3,9 +3,15 @@ import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
   email: string;
-  password: string;
+  password?: string;
   role: 'student' | 'alumni' | 'faculty' | 'club';
   name: string;
+  isEmailVerified: boolean;
+  emailVerificationToken?: string;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
+  googleId?: string;
+  authProvider: 'local' | 'google';
   skills: {
     name: string;
     proficiency: number;
@@ -106,13 +112,24 @@ export interface IUser extends Document {
 
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  password: { 
+    type: String, 
+    required: function(this: any) { 
+      return this.authProvider === 'local'; 
+    } 
+  },
   role: { 
     type: String, 
     required: true, 
     enum: ['student', 'alumni', 'faculty', 'club'] 
   },
   name: { type: String, required: true },
+  isEmailVerified: { type: Boolean, default: false },
+  emailVerificationToken: String,
+  passwordResetToken: String,
+  passwordResetExpires: Date,
+  googleId: String,
+  authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
   skills: {
     type: [{
       name: String,
@@ -223,8 +240,10 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
+  if (!this.isModified('password') || !this.password) return next();
+  if (this.authProvider === 'local') {
+    this.password = await bcrypt.hash(this.password, 10);
+  }
   next();
 });
 

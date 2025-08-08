@@ -42,11 +42,15 @@ dotenv.config();
 validateEnvironmentVariables();
 
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = parseInt(process.env.PORT || '5002', 10);
 
 // Updated CORS configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  origin: [
+    'http://localhost:3000', 
+    'http://localhost:3001',
+    'https://your-frontend-app.onrender.com' // Replace with your actual Render frontend URL
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -246,7 +250,7 @@ const startServer = async () => {
     SchedulerService.init();
     
     // Remove the findAvailablePort call and use PORT directly
-    const server = app.listen(PORT, () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
     });
 

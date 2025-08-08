@@ -164,4 +164,102 @@ router.get('/me', auth, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Google OAuth routes
+router.get('/google', (req: Request, res: Response) => {
+  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+    `client_id=${process.env.GOOGLE_CLIENT_ID}&` +
+    `redirect_uri=${encodeURIComponent('http://localhost:5002/api/auth/google/callback')}&` +
+    `response_type=code&` +
+    `scope=${encodeURIComponent('openid profile email')}`;
+  
+  res.redirect(googleAuthUrl);
+});
+
+router.get('/google/callback', async (req: Request, res: Response) => {
+  try {
+    const { code } = req.query;
+    
+    if (!code) {
+      return res.redirect('http://localhost:3000/login?error=oauth_failed');
+    }
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        code: code as string,
+        grant_type: 'authorization_code',
+        redirect_uri: 'http://localhost:5002/api/auth/google/callback',
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    
+    if (!tokenData.access_token) {
+      return res.redirect('http://localhost:3000/login?error=oauth_failed');
+    }
+
+    // Get user info from Google
+    const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    });
+
+    const googleUser = await userResponse.json();
+    
+    // Find or create user
+    let user = await User.findOne({ 
+      $or: [
+        { googleId: googleUser.id },
+        { email: googleUser.email }
+      ]
+    });
+
+    if (!user) {
+      // Create new user
+      user = new User({
+        googleId: googleUser.id,
+        email: googleUser.email,
+        name: googleUser.name,
+        avatar: googleUser.picture,
+        authProvider: 'google',
+        isEmailVerified: true,
+        role: 'student', // Default role, can be changed later
+        skills: [],
+        reputation: 0,
+        badges: []
+      });
+      await user.save();
+    } else if (!user.googleId) {
+      // Link existing account with Google
+      user.googleId = googleUser.id;
+      user.authProvider = 'google';
+      user.isEmailVerified = true;
+      if (!user.avatar) user.avatar = googleUser.picture;
+      await user.save();
+    }
+
+    // Generate JWT token
+    const jwtSecret = process.env.JWT_SECRET || 'default_jwt_secret_for_development';
+    const token = jwt.sign(
+      { userId: user._id },
+      jwtSecret,
+      { expiresIn: '24h' }
+    );
+
+    // Redirect to frontend with token
+    res.redirect(`http://localhost:3000/login?token=${token}`);
+    
+  } catch (error) {
+    console.error('Google OAuth error:', error);
+    res.redirect('http://localhost:3000/login?error=oauth_failed');
+  }
+});
+
 export default router;

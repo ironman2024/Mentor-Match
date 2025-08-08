@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Container, Paper, TextField, Button, Typography, Box, Alert, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Container, Paper, TextField, Button, Typography, Box, Alert, Select, MenuItem, FormControl, InputLabel, Divider } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 import axios from 'axios';
 import { authStyles } from '../theme/theme';
 
@@ -130,6 +131,36 @@ const Register: React.FC = () => {
               sx={authStyles.button}
             >
               {isLoading ? 'Creating Account...' : 'Sign Up'}
+            </Button>
+            
+            <Divider sx={{ my: 3, color: '#B5BBC9' }}>or</Divider>
+            
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<GoogleIcon />}
+              onClick={() => {
+                // Check if Google OAuth is configured
+                if (process.env.NODE_ENV === 'development') {
+                  alert('Google OAuth is not configured yet. Please set up Google OAuth credentials in the backend .env file.');
+                  return;
+                }
+                window.location.href = 'http://localhost:5002/api/auth/google';
+              }}
+              sx={{
+                py: 1.5,
+                borderRadius: '30px',
+                borderColor: '#B5BBC9',
+                color: '#585E6C',
+                fontSize: '1rem',
+                textTransform: 'none',
+                '&:hover': {
+                  borderColor: '#585E6C',
+                  background: 'rgba(88,94,108,0.05)',
+                }
+              }}
+            >
+              Continue with Google
             </Button>
             <Box sx={{ mt: 3, textAlign: 'center' }}>
               <Typography variant="body2" sx={{ color: '#B5BBC9' }}>
